@@ -1,0 +1,33 @@
+digraph G {
+	nemaload [label="Project Nemaload",style="filled",fontcolor="white",fillcolor="black"];
+	neural_model [label="Neural Model",style="filled",fillcolor="#9ffeb0"];
+	neuron_model [label="Neuron Model",style="filled",fillcolor="#d6b4fc"];
+	new_behav [label="New Behavioral Experiments",style="filled",fillcolor="#a2cffe"];
+	opto [label="New Optogenetic Experiments",style="filled",fillcolor="#a2cffe"];
+  known_behav [label="Known Behaviors",style="filled",fillcolor="#d6b4fc"];
+	white [label="Existing Topology Info",style="filled",fillcolor="#d6b4fc"];
+	opt [label="Optimization Techniques",style="filled",fillcolor="#ffff84"];
+	metaopt [label="Meta-Optimization Techniques",style="filled",fillcolor="#ffff84"];
+  env_model [label="Body/Environment Model",style="filled",fillcolor="#9ffeb0"];
+	quant_behav [label="Quantitative Behavior",style="filled",fillcolor="#9ffeb0"];
+
+  metaopt -> opto;
+  opt -> metaopt;
+	opt -> neural_model;
+	metaopt -> neural_model;
+	neuron_model -> neural_model;
+	neural_model -> nemaload;
+  quant_behav -> nemaload;
+	env_model -> nemaload;
+	new_behav -> quant_behav;
+	quant_behav -> opt;
+	known_behav -> env_model;
+	opto -> neural_model;
+	white -> neural_model;
+	white -> opt;
+	opto -> neuron_model;
+	known_behav -> new_behav;
+	new_behav -> env_model;
+	env_model -> quant_behav;
+	known_behav -> quant_behav;
+}
