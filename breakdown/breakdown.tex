@@ -1,4 +1,5 @@
 \documentclass{article}
+\usepackage[top=3.2cm,bottom=3.2cm,right=2.5cm,left=2.5cm]{geometry}
 \usepackage[x11names, rgb]{xcolor}
 \usepackage[utf8]{inputenc}
 \usepackage{tikz}
@@ -20,7 +21,8 @@
 
 % Start of code
 \begin{center}
-	\hspace*{\stretch{1}}
+{\Large \bfseries Project Nemaload Breakdown}
+\vfill
 \begin{tikzpicture}[scale=0.6,>=stealth,line join=bevel]
 %%
 \definecolor{fillcolor}{rgb}{1.0,1.0,0.52};
@@ -66,9 +68,22 @@
   \draw [->] (neural_model) ..controls (371bp,65bp) and (423bp,49bp)  .. (nemaload);
 %
 \end{tikzpicture}
-\hspace*{\stretch{1}}
 \end{center}
 % End of code
+\vspace*{\stretch{1}}
+{\large \bfseries Legend \\\rule[5mm]{5cm}{1.0pt}\\}
+\begin{tikzpicture}[outline/.style={draw=black,thick,fill=#1}]
+  \definecolor{core}{rgb}{0.62,1.0,0.69};
+  \definecolor{samuel}{rgb}{0.64,0.81,1.0};
+  \definecolor{mmp}{rgb}{1.0,1.0,0.52};
+  \definecolor{lit}{rgb}{0.84,0.71,0.99};
+	\node [outline=core] at (0,0) {Core Component};
+	\node [outline=samuel] at (0,1) {Collaboration with Samuel Lab};
+	\node [outline=mmp] at (0,2) {Collaboration with MMP};
+	\node [outline=lit] at (0,3) {From Literature};
+\end{tikzpicture}
+
+
 
 %
 \end{document}
