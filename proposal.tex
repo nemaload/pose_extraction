@@ -70,15 +70,21 @@
 	\rule[2mm]{0.66\textwidth}{0.25mm}\\[10mm]
 \end{center}
 
-\section*{Introduction}
+\section{Introduction}
 
-We propose a novel program to fully model the relationship between the neural circuits and behavioral dispositions of the organism {\em Caenorhabditis elegans} (\cel).
-This program is well matched to the current level of technological development, and is poised to provide important basic insights into systems neuroscience, with
-likely implications for artificial intelligence research in the future. At least, it provides a unique opportunity to establish an upper bound on the level
-of detail in neural simulation that is necessary to make predictions about the behavior of an entire organism; as a side product, the project may also contribute
-some degree of understanding about intermediate levels of abstraction between neurons and organism behavior.
+We propose a novel program to fully model the relationship between the neural
+circuits and behavioral dispositions of the organism {\em Caenorhabditis
+elegans} (\cel).  This program is well matched to the current level of
+technological development, and is poised to provide important basic insights
+into systems neuroscience, with likely implications for artificial intelligence
+research in the future. At least, it provides a unique opportunity to establish
+an upper bound on the level of detail in neural simulation that is necessary to
+make predictions about the behavior of an entire organism; as a side product,
+the project may also contribute some degree of understanding about intermediate
+levels of abstraction between neurons and organism behavior.
 
-\section*{Initial {\em in silico} work}
+\section{Initial {\em in silico} work}
+\label{initial}
 
 We will begin with the closest current result to our eventual goal, a 2004
 paper by Suzuki and Ohtake in which 18 \cel\ neurons involved in gentle touch
@@ -89,7 +95,7 @@ can be made to this approach immediately: using a more principled optimization
 technique, a more sophisticated model of behavior, and incorporating more
 interneurons in the model.
 
-\section*{Behavioral and environmental modeling}
+\section{Behavioral and environmental modeling}
 
 Since our goal is to replicate the behavior of an organism---its interaction with
 its environment---a critical component of the project is to accurately model the
@@ -99,7 +105,20 @@ Fortunately, the environment in which \cel\ is usually observed is quite simple
 experiments will be necessary to establish a quantitative description of \cel\ 
 behavior.
 
-\section*{Experimental technologies}
+\section{Optimization and meta-optimization}
+
+With a neural topology and a quantitative description of behavior, quite a bit
+of new work can be done using global optimization techniques to determine the
+parameters of a neural model to match the behaviors described. However, it is
+not necessarily the case that these parameters would have any biological
+meaning. Thus, some physical experiments on \cel\ are necessary to source this
+information. However, since most combinations of parameters would, in simulation,
+produce dramatically different behavior from that expected, it may be possible to
+apply a ``meta-optimization'' technique to generate experiments that would 
+provide the most information about which set of parmaters represents biological
+reality.
+
+\section{Experimental technologies}
 
 Such a project as this would not have been feasible five years ago. Without the
 tools to directly probe functional relationships between neurons, any computer-
@@ -107,19 +126,32 @@ generated theories about how behavior emerges from neural circuits would
 essentially be guesses. This project involves significant biological work, and
 the experimental tools that enable such work are briefly discussed below.
 
-\subsection*{Optogenetics}
+\subsection{Optogenetics}
 
 In 2005, Ed Boyden and collaborators published a technique for optical control of
 neural potential, through transgenic rhodopsins. It is now possible to stimulate
 or inhibit individual neurons through a purely optical experimental setup. This
 has enabled a wide variety of neuroscientific research that previously would have
+been impractical.
 
-\subsection*{Calcium dyes}
+\subsection{Calcium dyes}
 
-\subsection*{Genetic mosaic}
+As optogenetics provide optical input to neural circuits, calcium dyes, such as
+G-CaMP3, provide optical output from neural circuits, by activating flourescent
+proteins when calcium is present. The Ramanathan lab at Harvard has demonstrated
+simultaneous stimulation via optogenetics and readout via calcium dye, in \cel,
+to determine the functional relationship of certain neurons to other neurons.
 
-\subsection*{Motion tracking}
+\subsection{Genetic mosaic}
 
-\section*{Optimization and meta-optimization}
+Although the Samuel lab at Harvard has developed a DLP-based targetting system
+for optically stimulating specific neurons, it is difficult to prevent this
+stimulation from affecting nearby neurons with optogenetic proteins expresed.
+One possible workaround is the FLP/FRT system of genetic mosaics, which causes
+the expression of a transgene in the descendants of only one cell during the
+development of the organism. It would be possible to sort out those mosaics in
+which exactly one neuron is labeled, and perform experiments on these to
+determine the effect of stimulating that single neuron on all the other neurons
+in the organism.
 
 \end{document}
