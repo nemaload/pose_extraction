@@ -10,7 +10,7 @@
 
 \usepackage{parskip}
 \usepackage{graphicx}
-\usepackage[top=2.2cm,bottom=2.1cm,right=1.9cm,left=1.9cm]{geometry}
+\usepackage[top=2.2cm,bottom=2.2cm,right=1.9cm,left=1.9cm]{geometry}
 \usepackage{pdflscape}
 \usepackage[numbers]{natbib}
 
@@ -63,63 +63,25 @@
 
 \begin{document}
 
+\thispagestyle{empty}
+\pdfbookmark[1]{Title Page}{titlepage}
+{\color{white} $\cdot$}
+\vspace{\stretch{1}}
 \begin{center}
-	\textsc{\LARGE \bfseries C. elegant}\\[1mm]
-	\textit{David Dalrymple}\\[1mm]
-	{\small {\bfseries \color{red} Draft 1} compiled \currenttime, \today\\[0mm]}
-	\rule[2mm]{0.66\textwidth}{0.25mm}\\[10mm]
+	\rule[2mm]{0.66\textwidth}{0.25mm}\\[0mm]
+	\textsc{\Huge \bfseries The Mind of C. elegans}\\[3mm]
+	\textit{\Large David Dalrymple}\\[2mm]
+	{\large compiled \currenttime, \today\\[0mm]}
+	\rule[2mm]{0.66\textwidth}{0.25mm}
 \end{center}
+\vspace{1cm}
+\vspace{\stretch{1}}
+{\color{white} $\cdot$}
+
+\clearpage
 
 \section*{Introduction}
 
-We propose a novel program to fully model the relationship between the neural circuits and behavioral dispositions of the organism {\em Caenorhabditis elegans} (\cel).
-This program is well matched to the current level of technological development, and is poised to provide important basic insights into systems neuroscience, with
-likely implications for artificial intelligence research in the future. At least, it provides a unique opportunity to establish an upper bound on the level
-of detail in neural simulation that is necessary to make predictions about the behavior of an entire organism; as a side product, the project may also contribute
-some degree of understanding about intermediate levels of abstraction between neurons and organism behavior.
-
-\section*{Initial {\em in silico} work}
-
-We will begin with the closest current result to our eventual goal, a 2004
-paper by Suzuki and Ohtake in which 18 \cel\ neurons involved in gentle touch
-response were modeled, using a real-coded genetic algorithm to tune the unknown
-parameters of a very simple sigmoidal neuron model to a predetermined mathematical
-model of the expected system behavior. There are a number of improvements that
-can be made to this approach immediately: using a more principled optimization
-technique, a more sophisticated model of behavior, and incorporating more
-interneurons in the model.
-
-\section*{Behavioral and environmental modeling}
-
-Since our goal is to replicate the behavior of an organism---its interaction with
-its environment---a critical component of the project is to accurately model the
-environment and develop a quantitative assessment of the behaviors of interest.
-Fortunately, the environment in which \cel\ is usually observed is quite simple
-(a dish of agar). However, a literature search and possibly some new behavioral
-experiments will be necessary to establish a quantitative description of \cel\ 
-behavior.
-
-\section*{Experimental technologies}
-
-Such a project as this would not have been feasible five years ago. Without the
-tools to directly probe functional relationships between neurons, any computer-
-generated theories about how behavior emerges from neural circuits would
-essentially be guesses. This project involves significant biological work, and
-the experimental tools that enable such work are briefly discussed below.
-
-\subsection*{Optogenetics}
-
-In 2005, Ed Boyden and collaborators published a technique for optical control of
-neural potential, through transgenic rhodopsins. It is now possible to stimulate
-or inhibit individual neurons through a purely optical experimental setup. This
-has enabled a wide variety of neuroscientific research that previously would have
-
-\subsection*{Calcium dyes}
-
-\subsection*{Genetic mosaic}
-
-\subsection*{Motion tracking}
-
-\section*{Optimization and meta-optimization}
+After the discovery of DNA, 
 
 \end{document}
