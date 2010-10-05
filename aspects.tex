@@ -74,7 +74,7 @@
 A project as ambitious as realistically emulating the nervous system of an entire organism
 necessarily consists of many parts and stages. In addition, in our project, there are
 multiple promising technologies that can serve each of these. In this document, I've
-identified four main areas, which correspond roughly to the phases of the scientific
+identified four main phases, which correspond roughly to the phases of the scientific
 method---observation, the collection of data about what is happening in the neurons;
 modeling, the synthesis of this data into predictive models of neuronal function;
 stimulation, the perturbation of the nervous system so as to collect more nuanced
@@ -86,7 +86,10 @@ of the other parts of the project.
 
 \section{Observation}
 
+\fbox{\textbf{Goal:} Collect neural activation data}
+
 \subsection{Optics}
+\label{optics1}
 
 It has been suggested that a spinning-disk confocal microscope is the best
 platform for imaging flourescence in individual \cel\ cells.  Other
@@ -100,23 +103,28 @@ empirical trial---to determine which of these is the most promising.
 Many calcium- and voltage-sensitive dyes are commonly referred to in the literature,
 including:
 \begin{itemize}
-\item RH-155 {\em (voltage-sensitive)}
-\item RH-414 {\em (voltage-sensitive)}
-\item RH-482 {\em (voltage-sensitive)}
-\item Cameleon {\em (calcium-sensitive, ratiometric, commonly used in worms)}
-\item G-CaMP2 {\em (calcium-sensitive)}
-\item G-CaMP3 {\em (calcium-sensitive, 3 times brighter than G-CaMP2)}
-\item G-CaMP5 {\em (calcium-sensitive, not shown to work in worms)}
+  \item \textbf{RH-155} {\em (voltage-sensitive)}
+  \item \textbf{RH-414} {\em (voltage-sensitive)}
+  \item \textbf{RH-482} {\em (voltage-sensitive)}
+  \item \textbf{Cameleon} {\em (calcium-sensitive, ratiometric, commonly used in worms)}
+  \item \textbf{GCaMP2} {\em (calcium-sensitive)}
+  \item \textbf{GCaMP3} {\em (calcium-sensitive, 3 times brighter than GCaMP2)}
+  \item \textbf{GCaMP5} {\em (calcium-sensitive, not shown to work in worms)}
 \end{itemize}
 
-For the time being, G-CaMP3 is being considered as the leading candidate, but this
-may change due to new information or as novel molecules are introduced.
+For the time being, GCaMP3 is being considered as the leading candidate, but
+this may change due to new information or as novel molecules are introduced.%
+\footnote{Note: as of this writing (October 5), we are using GFP in place of a
+voltage- or calcium- sensitive dye, because such transgenic constructs are
+already available, and as a test for the optics and signal separation areas
+of this phase.}
 
-\subsection{Image Analysis}
+\subsection{Signal Separation}
 
 As nearly all of the data collected by these means will consist of images, it will be
 necessary to apply some computer vision techniques, at least in the initial stages of
-analysis.
+analysis. It may also be necessary to apply some of the genetic approaches discussed
+in section \ref{genetics}.
 
 \subsubsection{Straightening}
 
@@ -125,7 +133,7 @@ of each animal on a common anterior/posterior/left/right/dorsal/ventral coordina
 Parts of this can be done manually, but work is underway to implement the algorithm of
 \cite{straighten} and apply it to the preliminary data of October 6.
 
-\subsubsection{Signal Separation}
+\subsubsection{Neural Labeling}
 
 In addition, it would be desirable to separate the time-varying signals of each neuron
 algorithmically. However, a full labeling of neurons may prove intractable, and depending
@@ -136,11 +144,19 @@ are also possible.
 
 \section{Modeling}
 
+\fbox{\textbf{Goal:} Extract functional relationships from experimental data}
+
 This is probably the least developed section in my current thinking. A great deal
 of discussion and learning will need to take place before this part of the project is
 well characterized. Some initial scattered thoughts are represented below.
 
 \subsection{Correlation Matrix}
+
+A simple way to begin, given time-series data of multiple signals from
+separated neurons, is to compute the correlations of each signal with each
+other signal, with some selection of time delays. This would elucidate the
+simplest of functional relationships (e.g. calcium rising in neuron 1 causes
+calcium to rise in neuron 2 100ms later).
 
 \subsection{Kernel Methods}
 
@@ -153,17 +169,55 @@ well characterized. Some initial scattered thoughts are represented below.
 \section{Stimulation}
 \label{stimulation}
 
+\fbox{\textbf{Goal:} Control for certain neural variables (while also collecting data)}
+
+Beyond inferring functional relationships by examining time-series data of calcium activation
+under normal \cel behavior, we can gather more information by controlling for some of the
+variables; that is, by using optogenetics to directly transiently stimulate or inhibit the
+activity of specific neurons, and observe the effects on the rest of the nervous system.
+
 \subsection{Rhodopsins}
+
+Optogenetics is the expression of certain opsin proteins in neurons for the purpose of optically
+controlling neural activity. The Optogenetics Resource Center lists the following opsins:
+\begin{itemize}
+  \item \textbf{VChR1}, {\em Volvox} Channelrhodopsin-1 {\em (excitatory; older, obsoleted by ChR2)}
+  \item \textbf{NpHR}, Halorhodopsin {\em (inhibitory; known to work in \cel, silences around 100 pA)}
+  \item \textbf{ChR2}, Channelrhodopsin-2 {\em (excitatory; known to work in \cel)}
+  \item \textbf{hChR2}, humanized ChR2 {\em (excitatory; bistable)}
+  \item \textbf{ChETA}, engineered ChR2 {\em (excitatory; very fast)}
+  \item \textbf{eNpHR3.0}, third-generation engineered NpHR {\em (inhibitory; silences around 900 pA)}
+\end{itemize}
+In addition, at least two recent rhodopsins have been developed by the Boyden group:
+\begin{itemize}
+  \item \textbf{Mac} {\em (inhibitory; responds to blue light)}
+  \item \textbf{Arch} {\em (inhibitory; silences around 350 pA)}
+\end{itemize}
+
+It is likely best to being using ChR2 and NpHR, since they are known to work in \cel , and speed
+is not necessary for our application (the rise time for GCaMP3 is on the order of 100ms, and the
+decay time around 600ms). However, as with sensor molecules, this may change as the techniques
+develop, or new information is learned.
 
 \subsection{Optics}
 
-\subsection{Genetic Mosaic}
+It is expected that the optogenetic stimulation will take place through the same microscopy setup
+as used for the activation readout (see section \ref{optics1}).
+
+\subsection{Genetics}
+\label{genetics}
+
+\subsubsection{Genetic Mosaic}
+
+\subsubsection{Identification of Promoters}
 
 
 \section{Verification}
 
+\fbox{\textbf{Goal:} Determine the accuracy or fitness of a given model}
+
 ``How will you know when you are done?'' is a question I am commonly asked regarding this project.
-Below is my current thinking on this subject.
+Below is my current thinking on this topic.
 
 \subsection{Quantifying Behavior}
 
