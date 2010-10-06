@@ -7,9 +7,10 @@
 \usepackage{datetime}
 \usepackage{verbatim}
 
+\usepackage[compact]{titlesec}
 \usepackage{parskip}
 \usepackage{graphicx}
-\usepackage[top=2.2cm,bottom=2.2cm,right=1.9cm,left=1.9cm]{geometry}
+\usepackage[top=2.0cm,bottom=2.0cm,right=2.0cm,left=2.0cm]{geometry}
 \usepackage{pdflscape}
 \usepackage[numbers]{natbib}
 
@@ -60,12 +61,14 @@
 \setlength{\parskip}{0.3cm plus3mm minus1mm}
 \setlength{\parindent}{0cm}
 
+%\titlespacing{\section}{0pt}{0.5cm plus2mm minus3mm}{0.4cm plus3mm minus3mm}
+
 \begin{document}
 
 \begin{center}
   \textsc{\LARGE \textbf{Overview of Techniques} \\[0.5mm] for Various Aspects of the \\[2.8mm] C. elegans Modeling Project}\\[3mm]
 	\textit{\Large David Dalrymple}\\[2mm]
-	{\large compiled \currenttime, \today\\[0mm]}
+  {\large \textbf{Draft 1}, compiled \currenttime, \today\\[0mm]}
 	\rule[2mm]{0.66\textwidth}{0.25mm}
 \end{center}
 
@@ -144,7 +147,7 @@ are also possible.
 
 \section{Modeling}
 
-\fbox{\textbf{Goal:} Extract functional relationships from experimental data}
+\fbox{\textbf{Goal:} Estimate functional relationships from experimental data}
 
 This is probably the least developed section in my current thinking. A great deal
 of discussion and learning will need to take place before this part of the project is
@@ -156,14 +159,27 @@ A simple way to begin, given time-series data of multiple signals from
 separated neurons, is to compute the correlations of each signal with each
 other signal, with some selection of time delays. This would elucidate the
 simplest of functional relationships (e.g. calcium rising in neuron 1 causes
-calcium to rise in neuron 2 100ms later).
+calcium to rise in neuron 2 100ms later).  It would even be possible to
+represent the entire nervous system by a Markov model given this matrix of
+correlations. Although I doubt this would produce very biologically meaningful
+results, it is a fairly simple first step to try it and see what happens---it
+might work better than I expect.
 
 \subsection{Kernel Methods}
+
+However, a correlation matrix would be a very basic analysis of the data. Much
+more mathematical investigation is needed, but preliminary research suggests
+that kernel methods are most appropriate, due to their resistance to curse of
+dimensionality, in addition to the lack of necessity to choose an {\em a
+priori} physical model.
 
 %. . .
 
 \subsection{Control Theory}
 
+It may also be possible to use some modeling techniques from control theory in
+real time with an optical stimulation setup as described in section \ref{stimulation}
+in order to more accurately determine functional relationships.
 
 
 \section{Stimulation}
@@ -172,11 +188,11 @@ calcium to rise in neuron 2 100ms later).
 \fbox{\textbf{Goal:} Control for certain neural variables (while also collecting data)}
 
 Beyond inferring functional relationships by examining time-series data of calcium activation
-under normal \cel behavior, we can gather more information by controlling for some of the
+under normal \cel\ behavior, we can gather more information by controlling for some of the
 variables; that is, by using optogenetics to directly transiently stimulate or inhibit the
 activity of specific neurons, and observe the effects on the rest of the nervous system.
 
-\subsection{Rhodopsins}
+\subsection{Opsins}
 
 Optogenetics is the expression of certain opsin proteins in neurons for the purpose of optically
 controlling neural activity. The Optogenetics Resource Center lists the following opsins:
@@ -201,15 +217,41 @@ develop, or new information is learned.
 
 \subsection{Optics}
 
-It is expected that the optogenetic stimulation will take place through the same microscopy setup
-as used for the activation readout (see section \ref{optics1}).
+It is expected that the optogenetic stimulation will take place through the
+same microscopy setup as used for the activation readout (see section
+\ref{optics1}). However, to select individual neurons, instead of illuminating
+an entire animal uniformly, we may use a similar setup to the DMD system
+currently in the Samuel Lab. How this system will be integrated with the
+spinning-disk confocal microscope is, as far as I can tell, currently unknown.
+It may be possible to do even better than the DMD by taking advantage of the
+spinning disk itself. This is a question that should ideally be taken up by
+somebody who knows more about optics than I.
 
 \subsection{Genetics}
 \label{genetics}
 
+If perfect 3D selectivity in stimulation is not possible optically---as it
+probably won't be---we may also use some genetic tools to limit the subset
+of cells expressing opsins.
+
 \subsubsection{Genetic Mosaic}
 
+One possibility, suggested by Ed Boyden, is the generation of genetic mosaics:
+this is also not a technique that I understand fully, but essentially, some
+transgene is introduced in such a way that at every cell division in the lineage,
+there is some probability that the transgene will not be copied, and will only
+continue down one branch of the lineage. If this procedure is performed sufficiently
+many times, and a sufficiently good screen is developed, then in theory, we can
+isolate worms expressing opsins only in one neuron at a time, and sort them out
+by which neurons are labeled (then we can use these worms as a basis to probe the
+effects of the labeled neurons on the rest of the nervous system).
+
 \subsubsection{Identification of Promoters}
+
+An alternative, more traditional approach, is to identify promoters that are specific
+to certain limited subsets of cells, in combination with the optical techniques above,
+to achieve functional single-cell resolution. (That is, some of the selection can be
+done spatially, and some could be done genetically.)
 
 
 \section{Verification}
