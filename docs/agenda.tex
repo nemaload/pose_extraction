@@ -1,0 +1,98 @@
+\documentclass[letter,12pt]{article}
+
+\usepackage[english]{babel}
+\usepackage[T1]{fontenc}
+%\usepackage[ansinew]{inputenc}
+\usepackage{lmodern}	% font definition
+\usepackage{datetime}
+\usepackage{verbatim}
+
+\usepackage{parskip}
+\usepackage{graphicx}
+\usepackage[top=2.2cm,bottom=2.2cm,right=1.9cm,left=1.9cm]{geometry}
+\usepackage{pdflscape}
+\usepackage[numbers]{natbib}
+
+\usepackage[urw-garamond]{mathdesign}
+
+\usepackage{tikz}
+
+%%%<
+%\usepackage{verbatim}
+%\usepackage[active,tightpage]{preview}
+%\PreviewEnvironment{tikzpicture}
+%\setlength\PreviewBorder{5pt}%
+%%%>
+
+\usetikzlibrary{arrows,shapes}
+
+\usepackage{url}
+\usepackage[ps2pdf,breaklinks=true,bookmarks=true,bookmarksopen,bookmarksopenlevel=1,pdfpagelayout=OneColumn,pagebackref=true]{hyperref}
+\usepackage{breakurl}
+\usepackage{makeidx}
+
+\hypersetup{
+    bookmarks=true,         % show bookmarks bar?
+    unicode=false,          % non-Latin characters in Acrobat’s bookmarks
+    pdftoolbar=false,        % show Acrobat’s toolbar?
+    pdfmenubar=true,        % show Acrobat’s menu?
+    pdffitwindow=true,     % window fit to page when opened
+    pdfstartview={FitV},    % fits the width of the page to the window
+    pdftitle={Nemaload},    % title
+    pdfauthor={David Dalrymple},     % author
+    pdfcreator={SU Project Nemaload Team},   % creator of the document
+    pdfproducer={David Dalrymple}, % producer of the document
+    pdfnewwindow=true,      % links in new window
+    colorlinks=true,       % false: boxed links; true: colored links
+    linkcolor=blue,          % color of internal links
+    citecolor=green,        % color of links to bibliography
+    filecolor=magenta,      % color of file links
+    urlcolor=cyan           % color of external links
+}
+
+\newcommand{\attrib}[1]{\nopagebreak{\raggedleft\footnotesize #1\par}}
+\newcommand{\todo}[1]{\textcolor{lightgray}{\textit{<<#1>>}}}
+\newcommand{\tbc}{\begin{center} \todo{to be completed} \end{center}}
+\newcommand{\tbcsubsubsection}[1]{ \refstepcounter{subsubsection}%
+  \subsubsection*{\thesubsubsection \quad #1} \tbc}
+\newcommand{\cel}{{\em C. elegans}}
+
+\setlength{\parskip}{0.3cm plus3mm minus1mm}
+\setlength{\parindent}{0cm}
+
+\begin{document}
+
+\thispagestyle{empty}
+\begin{center}
+  \textsc{\Large \textbf{Proposed Agenda} \\[0.5mm] for the Planning Meeting \\[2.8mm] of October 7th}\\[2.6mm]
+	\textit{David Dalrymple}, Ed Boyden, Bob Horvitz, Aravi Samuel, Sebastian Seung\\[1.7mm]
+	\rule[2mm]{0.76\textwidth}{0.25mm}
+\end{center}
+\vspace{0.64cm}
+\begin{enumerate}
+  \item \textbf{Content}:
+    \begin{itemize}
+      \item review and discuss the \textit{Overview of Techniques} and \textit{Proposed Plan} documents
+      \item review results from October 6 (if ready)
+    \end{itemize}
+\item \textbf{Funding}: 
+	\begin{itemize}
+		\item Following up with Larry Page
+		\item McGovern Neurotechnology Program grant?
+	\end{itemize}
+\item \textbf{Academics}:
+	\begin{itemize}
+		\item All of you represent different academic departments. Which should I be a student in?
+	\end{itemize}
+\item \textbf{Logistics}:
+	\begin{itemize} 
+		\item Access to building 68
+	\end{itemize}
+\item \textbf{People}:
+  \begin{itemize}
+    \item Other professors I should talk to? Particularly experts in statistics and/or machine learning?
+    \item Bringing other people into the project (Peter Schmidt-Nielsen, Catherine Olsson)
+	\end{itemize}
+\end{enumerate}
+
+\end{document}

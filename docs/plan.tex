@@ -1,0 +1,85 @@
+\documentclass[letter,12pt]{article}
+
+\usepackage[english]{babel}
+\usepackage[T1]{fontenc}
+%\usepackage[ansinew]{inputenc}
+\usepackage{lmodern}	% font definition
+\usepackage{datetime}
+\usepackage{verbatim}
+\usepackage{wasysym}
+
+\usepackage{parskip}
+\usepackage{graphicx}
+\usepackage[top=2.2cm,bottom=2.2cm,right=1.9cm,left=1.9cm]{geometry}
+\usepackage{pdflscape}
+\usepackage[numbers]{natbib}
+
+\usepackage[urw-garamond]{mathdesign}
+
+\usepackage{tikz}
+
+%%%<
+%\usepackage{verbatim}
+%\usepackage[active,tightpage]{preview}
+%\PreviewEnvironment{tikzpicture}
+%\setlength\PreviewBorder{5pt}%
+%%%>
+
+\usetikzlibrary{arrows,shapes}
+
+\usepackage{url}
+\usepackage[ps2pdf,breaklinks=true,bookmarks=true,bookmarksopen,bookmarksopenlevel=1,pdfpagelayout=OneColumn,pagebackref=true]{hyperref}
+\usepackage{breakurl}
+\usepackage{makeidx}
+
+\hypersetup{
+    bookmarks=true,         % show bookmarks bar?
+    unicode=false,          % non-Latin characters in Acrobat’s bookmarks
+    pdftoolbar=false,        % show Acrobat’s toolbar?
+    pdfmenubar=true,        % show Acrobat’s menu?
+    pdffitwindow=true,     % window fit to page when opened
+    pdfstartview={FitV},    % fits the width of the page to the window
+    pdftitle={Nemaload},    % title
+    pdfauthor={David Dalrymple},     % author
+    pdfcreator={SU Project Nemaload Team},   % creator of the document
+    pdfproducer={David Dalrymple}, % producer of the document
+    pdfnewwindow=true,      % links in new window
+    colorlinks=true,       % false: boxed links; true: colored links
+    linkcolor=blue,          % color of internal links
+    citecolor=green,        % color of links to bibliography
+    filecolor=magenta,      % color of file links
+    urlcolor=cyan           % color of external links
+}
+
+\newcommand{\attrib}[1]{\nopagebreak{\raggedleft\footnotesize #1\par}}
+\newcommand{\todo}[1]{\textcolor{lightgray}{\textit{<<#1>>}}}
+\newcommand{\tbc}{\begin{center} \todo{to be completed} \end{center}}
+\newcommand{\tbcsubsubsection}[1]{ \refstepcounter{subsubsection}%
+  \subsubsection*{\thesubsubsection \quad #1} \tbc}
+\newcommand{\cel}{{\em C. elegans}}
+
+\newcommand{\checky}{ {\large \bfseries \CheckedBox } }
+\newcommand{\notyet}{ {\large \Square} }
+
+\setlength{\parskip}{0.3cm plus3mm minus1mm}
+\setlength{\parindent}{0cm}
+
+\begin{document}
+
+\begin{center}
+  \textsc{\Large \textbf{Proposed Plan} \\[0.5mm] for the C. elegans Modeling Project}\\[2.6mm]
+	\textit{David Dalrymple}\\[1.7mm]
+	\rule[2mm]{0.76\textwidth}{0.25mm}
+\end{center}
+\vspace{0.64cm}
+\begin{enumerate}
+  \item \checky Obtain strains of \cel\ expressing GFP pan-neuronally.
+  \item \checky Image these strains with the spinning-disk confocal microscope at the Samuel Lab at Harvard.
+  \item \notyet Develop algorithms to interpret this data (spatial).
+  \item \notyet Construct a strain expressing GCaMP3 under the \textit{unc-119} promoter.
+  \item \notyet Image this strain in natural modes of behavior.
+  \item \notyet Develop algorithms to interpret \textit{this} data (temporal/functional).
+  \item \ldots
+\end{enumerate}
+
+\end{document}
