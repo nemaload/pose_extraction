@@ -1,5 +1,10 @@
 import numpy
+import numpy.linalg
+import ctypes
 import scipy
+import scipy.interpolate
+import scipy.ndimage
+import scipy.weave
 import argparse
 import os
 import matplotlib.pyplot as plt
@@ -28,7 +33,7 @@ print "Step 1 done!"
 data.shape=(num_slices, args.height, args.width)
 
 w = numpy.empty((0, 4), dtype=numpy.uint32)
-while(w.shape[0] < 50):
+while(w.shape[0] < 80):
   ind = (numpy.random.randint(data.shape[0]),numpy.random.randint(data.shape[1]),numpy.random.randint(data.shape[2]))
   if(data[ind] > threshold): # and data[ind] < upper_threshold):
     w=numpy.append(w,[numpy.append(ind, [data[ind]])], axis=0)
@@ -135,8 +140,8 @@ while(it in previous):
 print "Step 6 done!"
 
 alpha = 1
-beta = -0.4
-gamma = 3.0
+beta = 0
+gamma = 7.0
 
 #next 17 lines taken from Wikipedia
 class Node:pass
@@ -201,7 +206,7 @@ def ens_d(new, old):
       ss += (new[i,j]-old[i,j])**2
     sss += scipy.sqrt(ss)
     ss = 0
-  return sss
+  return (sss/new.shape[0])
 
 ps = numpy.empty((0, 4), dtype=numpy.uint32)
 while(ps.shape[0] < 800):
@@ -210,7 +215,7 @@ while(ps.shape[0] < 800):
     ps=numpy.append(ps,[numpy.append(ind, [data[ind]])], axis=0)
 
 iteration_count = 0
-while(ens_d(ck_new,ck) > 200):
+while(ens_d(ck_new,ck) > 40):
   print "Iteration", iteration_count
   iteration_count+=1
   ck = ck_new
@@ -232,8 +237,14 @@ while(ens_d(ck_new,ck) > 200):
   for p in ps:
     nn = kdsearch(kd,p).location
     k = nn["k"]
+    if(k>1):
+      nk[k-1,0]+=p[3]
+      ipp[k-1]+=p[3]*p[0:3]
     nk[k,0]+=p[3]
     ipp[k]+=p[3]*p[0:3]
+    if(k<nk.shape[0]-1):
+      nk[k+1,0]+=p[3]
+      ipp[k+1]+=p[3]*p[0:3]
 
   #print nk[0]
   for i in range(ck.shape[0]):
@@ -274,5 +285,91 @@ for p in ps:
 
 for k in range(ck_new.shape[0]-1):
   prim_arrow(ck_new[k],ck_new[k+1],color="red")
+
+#Step 9 - mmaping output image
+
+new_data = numpy.memmap(args.filename + ".small", dtype=numpy.uint16, mode='write',shape=(data.shape[0]/20,data.shape[1]/20,data.shape[2]/10))
+
+#Step 8 - modifying the image based on this backbone
+
+((tck,u),fp,err,msg) = scipy.interpolate.splprep(ck_new.transpose(),full_output=1)
+print "Beginning step 8/9..."
+
+def splinterp(output_coords):
+  if(output_coords[2] == 0):
+    print "Computing point", output_coords
+  x = output_coords[2]
+  bp = scipy.interpolate.splev(x,tck)
+  bd = scipy.interpolate.splev(x,tck,der=1)
+  znv = [1,0,0]
+  ynv = [0,1,0]
+  zdv = numpy.cross(bd,ynv)
+  ydv = numpy.cross(bd,znv)
+  zndv = zdv/numpy.linalg.norm(zdv)
+  yndv = ydv/numpy.linalg.norm(ydv)
+  if(zndv[0] < 0):
+    zndv*=-1
+  return bp + zndv*(output_coords[0]-data.shape[0]/2) + yndv*(output_coords[1]-data.shape[1]/2)
+
+#scipy.ndimage.geometric_transform(data,splinterp,output=new_data,order=0,prefilter=False)
+
+n1k, n1j, n1i = data.shape
+n2k, n2j, n2i = new_data.shape
+cdata = data.ctypes.data
+cnew_data = new_data.ctypes.data
+cdata_high = cdata / 2**32
+cnew_data_high = cnew_data / 2**32
+cdata=cdata % 2**32
+cnew_data = cnew_data % 2**32
+for oi in range(n2i):
+  print "Computing spline point", oi
+  bp = scipy.interpolate.splev(oi*1.0/new_data.shape[2],tck)
+  bd = scipy.interpolate.splev(oi*1.0/new_data.shape[2],tck,der=1)
+  znv = [1,0,0]
+  ynv = [0,1,0]
+  zdv = numpy.cross(bd,ynv)
+  ydv = numpy.cross(bd,znv)
+  zndv = zdv/numpy.linalg.norm(zdv)
+  yndv = ydv/numpy.linalg.norm(ydv)
+  if(zndv[0] < 0):
+    zndv*=-1
+  print cnew_data
+  code =  """
+          #line 330 "straighten2.py"
+          unsigned long long pnew_data = (unsigned long long)cnew_data;
+          unsigned short* new_data = (unsigned short*)pnew_data;
+          unsigned short* data = (unsigned short*)cdata;
+          for(int ok=0; ok<n2k; ok++) {
+            printf("Row %d\\n", ok);
+            for(int oj=0; oj<n2j; oj++) {
+              int iip[3];
+              int in_bounds = 1;
+              for(int ov=0; ov<3; ov++) {
+                printf("ov=%d\\n",ov);
+                iip[ov]=(int)((double)bp[ov]+zndv[ov]*(ok*(n2k*1.0/n1k)-n1k/2.0)+yndv[ov]*(oj*(n2j*1.0/n1j)-n1j/2.0));
+              }
+              if(iip[0] >= 0 && iip[1] >= 0 && iip[2] >= 0 && iip[0] < n1k && iip[1] < n1j && iip[2] < n1i) {
+                printf("Trying (%d,%d,%d)\\n",iip[0],iip[1],iip[2]);
+                //new_data(ok,oj,oi) = data(iip[0],iip[1],iip[2]);
+              } else {
+                printf("Zeroing (%d,%d,%d)\\n",ok,oj,oi);
+                printf("%llu[%d]\\n",new_data,ok*n2j*n2i+oj*n2i+oi);
+                new_data[ok*n2j*n2i+oj*n2i+oi] = 0;
+              }
+            }
+          }
+          """
+  scipy.weave.inline(code,['oi','bp','zndv','yndv','n1i','n1j','n1k','n2i','n2j','n2k','cnew_data','cnew_data_high','cdata','cdata_high'])
+  #for oj in range(new_data.shape[1]):
+    #print "Row", oj
+    #for ok in range(new_data.shape[0]):
+      #ip = bp + zndv*(ok*20-data.shape[0]/2) + yndv*(oj*20-data.shape[1]/2)
+      #(ik,ij,ii) = numpy.floor(ip).astype(int)
+      #if(ii >= 0 and ij >= 0 and ik >= 0 and ik < data.shape[0] and ij < data.shape[1] and ii < data.shape[2]):
+        #new_data[ok,oj,oi]=data[ik,ij,ii]
+      #else:
+        #new_data[ok,oj,oi]=0
+
+plt.imshow(new_data[4,:,:])
 
 plt.show()
