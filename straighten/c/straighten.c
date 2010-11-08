@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <argtable2.h>
 
@@ -243,7 +244,65 @@ double* compute_distances(point_list_t* list, int n) {
       progress(ix,n2);
     }
   }
+  return table;
 }
+
+/*
+ * [Step 4]
+ * Compute the minimum spanning tree, using Prim's algorithm
+ */
+
+int* compute_mst(double* distances, int n) {
+  int n2=n*n;
+  int* mst = malloc(n2*sizeof(int));
+  memset(mst,-1,n2*sizeof(int));
+  int* set = malloc(n*sizeof(int));
+  int set_b = 1;
+  int i,j;
+  for(i=0; i<n; i++) {
+    set[i]=i;
+  }
+  while(set_b<n) {
+    progress(set_b,n-1);
+    double min_weight = INFINITY;
+    int min_edge_1, min_edge_2;
+    for(i=0;i<set_b;i++) {
+      for(j=set_b;j<n;j++) {
+        double d = distances[set[i]*n+set[j]];
+        if(d<min_weight) {
+          min_weight = d;
+          min_edge_1 = i;
+          min_edge_2 = j;
+        }
+      }
+    }
+    for(i=0;mst[set[min_edge_1]*n+i]!=-1;i++);
+    mst[set[min_edge_1]*n+i]=set[min_edge_2];
+    for(i=0;mst[set[min_edge_2]*n+i]!=-1;i++);
+    mst[set[min_edge_2]*n+i]=set[min_edge_1];
+    int tmp;
+    tmp = set[set_b];
+    set[set_b] = set[min_edge_2];
+    set[min_edge_2] = tmp;
+    set_b++;
+  }
+  free(set);
+  return mst;
+}
+
+void print_mst(int* mst, int n) {
+  int i,j;
+  for(i=0;i<n;i++) {
+    printf("%4d:",i);
+    for(j=0;j<n;j++) {
+      int x = mst[i*n+j];
+      if(x>=0)
+        printf("%4d",x);
+    }
+    printf("\n");
+  }
+}
+
 
 /*
  * Now, we put it all together!
@@ -286,6 +345,13 @@ int main(int argc, char** argv) {
   double* distances;
   distances = compute_distances(w, params.mst_sample_size);
   step(END, NULL);
+
+  step(START, "Prim's algorithm");
+  int* mst;
+  mst = compute_mst(distances, params.mst_sample_size);
+  step(END, NULL);
+
+  print_mst(mst,params.mst_sample_size);
 
   return 0;
 }
