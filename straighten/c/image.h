@@ -37,5 +37,6 @@ void compute_depth(image_t*);
 point_t random_point(const image_t*);
 unsigned short pixel_get(const image_t*, point_t);
 void add_point_to_list(point_list_t**, point_t);
+double distance(point_t,point_t);
 
 #endif

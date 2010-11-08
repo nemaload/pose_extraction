@@ -1,4 +1,8 @@
 #include "image.h"
+#include <math.h>
+#include <time.h>
+#include <unistd.h>
+#define RANDOM_SEED
 
 /*
  * Taking care of that pesky random-number generator.
@@ -43,3 +47,9 @@ void add_point_to_list(point_list_t** list, point_t p) {
   (*list)->n = old_list;
 }
 
+double distance(point_t a, point_t b) {
+  double dx=(double)a.x-b.x;
+  double dy=(double)a.y-b.y;
+  double dz=(double)a.z-b.z;
+  return sqrt(dx*dx+dy*dy+dz*dz);
+}

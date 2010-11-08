@@ -1,8 +1,7 @@
 #define SD_SAMPLE_SIZE_DEFAULT 1000
 #define MST_SAMPLE_SIZE_DEFAULT 150
-#define RANDOM_SEED
+#define PROGRESS_BAR_WIDTH 100
 
-#include <time.h>
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -14,6 +13,7 @@
 
 #include <argtable2.h>
 
+#include <math.h>
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_statistics.h>
@@ -103,6 +103,34 @@ void step(se_t se, const char* desc) {
 }
 
 /*
+ * This function is for displaying progress bars.
+ */
+void progress(unsigned int i, unsigned int n) {
+#ifdef PROGRESS_BAR_WIDTH
+  int k;
+  if(i<=1) {
+    printf("\n[>");
+    for(k=0;k<PROGRESS_BAR_WIDTH;k++) {
+      printf(" ");
+    }
+    printf("]");
+    fflush(stdout);
+  }
+  if ((i-1)%(n/PROGRESS_BAR_WIDTH) == 0) {
+    if(i/((double)n/PROGRESS_BAR_WIDTH)<=PROGRESS_BAR_WIDTH){
+      printf("\033[%dG=>\033[%dG",2+(int)(int)((i-1)/((double)n/PROGRESS_BAR_WIDTH)),PROGRESS_BAR_WIDTH+4);
+      printf("%9d/%9d", i, n);
+      fflush(stdout);
+    }
+  }
+  if(i>=n) {
+    printf("\033[%dG Done!\033[0K\n\n",PROGRESS_BAR_WIDTH+4);
+    fflush(stdout);
+  }
+#endif
+}
+
+/*
  * Bundle all the little initializations together
  */
 void init(image_t* image, const params_t* params) {
@@ -173,14 +201,34 @@ void compute_sd(const image_t* image, int sample_size, double* mean, double* sd)
 point_list_t* sample_bright_points(const image_t* image, double threshhold, int n) {
   point_list_t* list = NULL;
   point_t p;
-  while(n>0) {
+  int i=0;
+  while(i<n) {
     p = random_point(image);
     if(pixel_get(image,p) > threshhold) {
-      n--;
+      i++;
       add_point_to_list(&list,p);
+      progress(i,n);
     }
   }
   return list;
+}
+
+/*
+ * [Step 3]
+ * Compute the distances between all the points sampled in Step 2.
+ */
+
+double* compute_distances(point_list_t* list, int n) {
+  point_list_t *i,*j;
+  int ix=0;
+  int n2=n*n;
+  double* table = malloc(n2*sizeof(double));
+  for(i=list; i!=NULL; i=i->n) {
+    for(j=list; j!=NULL; j=j->n) {
+      table[ix++] = distance(i->p,j->p);
+      progress(ix,n2);
+    }
+  }
 }
 
 /*
@@ -195,7 +243,7 @@ int main(int argc, char** argv) {
 
   parse_args(argc, argv, &params);
 
-  printf("Worm straightener v0.0.1\ncreated by David Dalrymple\n=========================\n\nLet's straighten this worm!\n\n");
+  printf("Worm straightener v0.0.1\ncreated by David Dalrymple\n============================\n\nLet's straighten this worm!\n\n");
 
   step(START, "mmapping file");
   image.data=open_mmapped_file(params.filename, &image.length);
@@ -217,6 +265,11 @@ int main(int argc, char** argv) {
   step(START, "sampling for MST");
   point_list_t* w;
   w = sample_bright_points(&image, threshhold, params.mst_sample_size);
+  step(END, NULL);
+
+  step(START, "computing distances for MST");
+  double* distances;
+  distances = compute_distances(w, params.mst_sample_size);
   step(END, NULL);
 
   return 0;
