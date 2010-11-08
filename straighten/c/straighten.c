@@ -1,4 +1,5 @@
-#define SAMPLE_SIZE_DEFAULT 1000
+#define SD_SAMPLE_SIZE_DEFAULT 1000
+#define MST_SAMPLE_SIZE_DEFAULT 150
 #define RANDOM_SEED
 
 #include <time.h>
@@ -17,23 +18,7 @@
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_statistics.h>
 
-/*
- * This struct is passed around by most of the functions,
- * and besides containing a pointer to the region of address space
- * where the input data is found, it also carries housekeeping
- * information like the width, height and depth (number of slices)
- * of the image, the total length of the image, and even more
- * questionable variables like a pointer to a random number
- * generator (so we only have to initialize it once).
- */
-typedef struct {
-  int width;
-  int height;
-  int depth;
-  int length;
-  void* data;
-  gsl_rng* r;
-} image_t;
+#include "image.h"
 
 /*
  * This struct contains the command-line parameters.
@@ -54,12 +39,14 @@ int parse_args(int argc, char** argv, params_t* params) {
   struct arg_int* w = arg_int1("w", "width", "<int>", "the width of each image slice");
   struct arg_int* h = arg_int1("h", "height", "<int>", "the height of each image slice");
   struct arg_int* sdss = arg_int0(NULL, "sdss", "<int>", "the sample size to use for computing standard deviation");
+  struct arg_int* mstss = arg_int0(NULL, "mstss", "<int>", "the sample size to use for making the MST");
   struct arg_end* end = arg_end(10);
-  void* argtable[] = {file, w, h, sdss, end};
+  void* argtable[] = {file, w, h, sdss, mstss, end};
   int nerrors;
 
   w->ival[0] = h->ival[0] = -1;
-  sdss->ival[0] = SAMPLE_SIZE_DEFAULT;
+  sdss->ival[0] = SD_SAMPLE_SIZE_DEFAULT;
+  mstss->ival[0] = MST_SAMPLE_SIZE_DEFAULT;
 
   nerrors = arg_parse(argc, argv, argtable);
   if(nerrors > 0) {
@@ -74,6 +61,7 @@ int parse_args(int argc, char** argv, params_t* params) {
     params->width = w->ival[0];
     params->height = h->ival[0];
     params->sd_sample_size = sdss->ival[0];
+    params->mst_sample_size = mstss->ival[0];
     return 0;
   }
 }
@@ -85,6 +73,7 @@ typedef enum {START, END} se_t;
 void step(se_t se, const char* desc) {
   static int n = -1;
   static struct timespec s_t;
+  static double total_time;
   static const char* last_desc;
   if(se == START) {
     n++;
@@ -107,32 +96,10 @@ void step(se_t se, const char* desc) {
       printf("[Step %d end (%s)]\n\n",n,desc);
     else
       printf("[Step %d end]\n\n",n);
-    printf("[Time spent in step %d: %lf]\n\n",n,elapsed);
+    printf("[Time spent in step %d: %lf]\n",n,elapsed);
+    total_time += elapsed;
+    printf("[Running total of time: %lf]\n\n",total_time);
   }
-}
-
-/*
- * Taking care of that pesky random-number generator.
- * There's a compile-time flag here to use a random seed,
- * or to use the 0 seed for reproducible results.
- */
-void init_rng(image_t* image) {
-  image->r = gsl_rng_alloc(gsl_rng_mrg);
-#ifdef RANDOM_SEED
-  struct timespec t;
-  clock_gettime(CLOCK_REALTIME, &t);
-  gsl_rng_set(image->r, t.tv_nsec);
-#else
-  gsl_rng_set(image->r, 0);
-#endif
-}
-
-/*
- * Computing the depth of the image given the width,
- * height and length.
- */
-void compute_depth(image_t* i) {
-  i->depth = i->length / i->width / i->height;
 }
 
 /*
@@ -146,6 +113,7 @@ void init(image_t* image, const params_t* params) {
 }
 
 /*
+ * [Step 0]
  * Here's where the action begins - step 0 of the algorithm, loading
  * the file - well, not loading it per se, but mmaping it.
  */
@@ -169,6 +137,7 @@ void* open_mmapped_file(const char* filename, int* length) {
 }
 
 /*
+ * [Step 1]
  * Here we compute the mean and standard deviation of the data;
  * but to avoid actually reading in all that data, we take a random
  * sample first.
@@ -192,7 +161,26 @@ void compute_sd(const image_t* image, int sample_size, double* mean, double* sd)
 
   *mean = gsl_stats_ushort_mean(sample, 1, sample_size);
   *sd = gsl_stats_ushort_sd_m(sample, 1, sample_size, *mean);
+}
 
+/*
+ * [Step 2]
+ * Given a threshhold value, randomly sample points, adding them to
+ * a point list if they are above the threshhold, until we have a
+ * specified number of points.
+ */
+
+point_list_t* sample_bright_points(const image_t* image, double threshhold, int n) {
+  point_list_t* list = NULL;
+  point_t p;
+  while(n>0) {
+    p = random_point(image);
+    if(pixel_get(image,p) > threshhold) {
+      n--;
+      add_point_to_list(&list,p);
+    }
+  }
+  return list;
 }
 
 /*
@@ -215,18 +203,20 @@ int main(int argc, char** argv) {
     perror("mmap failed");
     return 1;
   }
-
   printf("File mmapped successfully...\n");
-
   init(&image, &params);
   step(END, NULL);
   
   step(START, "computing mean & s.d.");
   compute_sd(&image, params.sd_sample_size, &mean, &sd);
   printf("The standard deviation of %d randomly chosen points is: %lf\nThe mean is: %lf\n", params.sd_sample_size, sd, mean);
-
   threshhold = mean + sd;
   printf("The threshhold is: %lf\n", threshhold);
+  step(END, NULL);
+
+  step(START, "sampling for MST");
+  point_list_t* w;
+  w = sample_bright_points(&image, threshhold, params.mst_sample_size);
   step(END, NULL);
 
   return 0;
