@@ -213,15 +213,14 @@ void compute_sd(const image_t* image, int sample_size, double* mean, double* sd)
  * specified number of points.
  */
 
-point_list_t* sample_bright_points(const image_t* image, double threshhold, int n) {
-  point_list_t* list = NULL;
+point_t* sample_bright_points(const image_t* image, double threshhold, int n) {
+  point_t* list = malloc(sizeof(point_t)*n);
   point_t p;
   int i=0;
   while(i<n) {
     p = random_point(image);
     if(pixel_get(image,p) > threshhold) {
-      i++;
-      add_point_to_list(&list,p);
+      list[i++]=p;
       progress(i,n);
     }
   }
@@ -233,14 +232,14 @@ point_list_t* sample_bright_points(const image_t* image, double threshhold, int 
  * Compute the distances between all the points sampled in Step 2.
  */
 
-double* compute_distances(point_list_t* list, int n) {
-  point_list_t *i,*j;
-  int ix=0;
+double* compute_distances(point_t* list, int n) {
   int n2=n*n;
   double* table = malloc(n2*sizeof(double));
-  for(i=list; i!=NULL; i=i->n) {
-    for(j=list; j!=NULL; j=j->n) {
-      table[ix++] = distance(i->p,j->p);
+  int ix=0;
+  int i,j;
+  for(i=0; i<n; i++) {
+    for(j=0; j<n; j++) {
+      table[ix++] = distance(list[i],list[j]);
       progress(ix,n2);
     }
   }
@@ -337,7 +336,7 @@ int main(int argc, char** argv) {
   step(END, NULL);
 
   step(START, "sampling for MST");
-  point_list_t* w;
+  point_t* w;
   w = sample_bright_points(&image, threshhold, params.mst_sample_size);
   step(END, NULL);
 

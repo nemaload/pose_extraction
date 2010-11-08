@@ -40,13 +40,6 @@ unsigned short pixel_get(const image_t* i, point_t p) {
   return ((unsigned short*)i->data)[p.z*i->width*i->height+p.y*i->width+p.x];
 }
 
-void add_point_to_list(point_list_t** list, point_t p) {
-  point_list_t* old_list = *list;
-  *list = malloc(sizeof(point_list_t));
-  (*list)->p = p;
-  (*list)->n = old_list;
-}
-
 double distance(point_t a, point_t b) {
   double dx=(double)a.x-b.x;
   double dy=(double)a.y-b.y;

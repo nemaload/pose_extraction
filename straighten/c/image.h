@@ -27,16 +27,10 @@ typedef struct {
   int z;
 } point_t;
 
-typedef struct point_list {
-  point_t p;
-  struct point_list* n;
-} point_list_t;
-
 void init_rng(image_t*);
 void compute_depth(image_t*);
 point_t random_point(const image_t*);
 unsigned short pixel_get(const image_t*, point_t);
-void add_point_to_list(point_list_t**, point_t);
 double distance(point_t,point_t);
 
 #endif
