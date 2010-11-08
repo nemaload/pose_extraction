@@ -69,15 +69,19 @@ int parse_args(int argc, char** argv, params_t* params) {
 /*
  * This function is for a primitive sort of profiling.
  */
+double elapsed(struct timespec e_t, struct timespec s_t);
 typedef enum {START, END} se_t;
 void step(se_t se, const char* desc) {
   static int n = -1;
-  static struct timespec s_t;
-  static double total_time;
+  static struct timespec s_t_rt;
+  static struct timespec s_t_usr;
+  static double total_time_rt;
+  static double total_time_usr;
   static const char* last_desc;
   if(se == START) {
     n++;
-    clock_gettime(CLOCK_REALTIME, &s_t);
+    clock_gettime(CLOCK_REALTIME, &s_t_rt);
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &s_t_usr);
     if(desc) {
       printf("[Step %d begin (%s)]\n",n,desc);
       last_desc = desc;
@@ -86,20 +90,29 @@ void step(se_t se, const char* desc) {
       last_desc = NULL;
     }
   } else {
-    struct timespec e_t;
-    double elapsed;
-    clock_gettime(CLOCK_REALTIME, &e_t);
-    elapsed = (e_t.tv_sec-s_t.tv_sec)+((e_t.tv_nsec-s_t.tv_nsec)*1e-9);
+    struct timespec e_t_rt;
+    struct timespec e_t_usr;
+    double elapsed_rt;
+    double elapsed_usr;
+    clock_gettime(CLOCK_REALTIME, &e_t_rt);
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &e_t_usr);
     if(last_desc && !desc)
       printf("[Step %d end (%s)]\n\n",n,last_desc);
     else if(desc)
       printf("[Step %d end (%s)]\n\n",n,desc);
     else
       printf("[Step %d end]\n\n",n);
-    printf("[Time spent in step %d: %lf]\n",n,elapsed);
-    total_time += elapsed;
-    printf("[Running total of time: %lf]\n\n",total_time);
+    elapsed_rt = elapsed(e_t_rt,s_t_rt);
+    elapsed_usr = elapsed(e_t_usr,s_t_usr);
+
+    printf("[Time spent in step %d: %lfms/%lfms]\n",n,elapsed_usr,elapsed_rt);
+    total_time_rt += elapsed_rt;
+    total_time_usr += elapsed_usr;
+    printf("[Running total of time: %lfms/%lfms]\n\n",total_time_usr,total_time_rt);
   }
+}
+double elapsed(struct timespec e_t, struct timespec s_t) {
+    return (e_t.tv_sec-s_t.tv_sec)*1e3+((e_t.tv_nsec-s_t.tv_nsec)*1e-6);
 }
 
 /*
