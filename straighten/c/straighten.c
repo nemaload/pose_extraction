@@ -50,6 +50,7 @@ int parse_args(int argc, char** argv, params_t* params) {
 
   nerrors = arg_parse(argc, argv, argtable);
   if(nerrors > 0) {
+    printf("\e[A");
     arg_print_errors(stderr, end, argv[0]);
     fprintf(stderr,"\nUsage:\n%s",argv[0]);
     arg_print_syntaxv(stderr, argtable, "\n\n");
@@ -254,6 +255,7 @@ int main(int argc, char** argv) {
   double sd;
   double threshhold;
 
+  printf("Parsing command line...\n");
   parse_args(argc, argv, &params);
 
   printf("Worm straightener v0.0.1\ncreated by David Dalrymple\n============================\n\nLet's straighten this worm!\n\n");
