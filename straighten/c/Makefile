@@ -1,4 +1,4 @@
-all: straighten
+all: straighten run
 
 straighten: straighten.c image.c image.h Makefile
 	gcc -g -O3 -largtable2 -lgsl -lgslcblas -lrt straighten.c image.c -o straighten
