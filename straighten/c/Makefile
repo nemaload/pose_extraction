@@ -12,3 +12,7 @@ debug:
 	echo "run ../TU3335.raw --width 2437 --height 1851" > gdb.tmp
 	gdb -x gdb.tmp ./straighten
 	rm gdb.tmp
+
+.PHONY : clean
+clean:
+	rm -f gdb.tmp straighten
