@@ -35,8 +35,8 @@
   ARG(ARG_INT0,sd_sample_size,NULL,"sdss","the sample size for computing standard deviation",1000) \
   ARG(ARG_INT0,mst_sample_size,NULL,"mstss","the sample size for making the MST",150) \
   ARG(ARG_INT0,refine_sample_size,NULL,"rfss","the sample size of E_image in refining the backbone",800) \
-  ARG(ARG_INT0,refine_refresh_size,NULL,"rfrs","the number of E_image samples to replace each iteration",50) \
-  ARG(ARG_DBL0,refine_threshhold,NULL,"rfth","the average distance (in pixels) points must move less than to terminate refinement",50.0) \
+  ARG(ARG_INT0,refine_refresh_size,NULL,"rfrs","the number of E_image samples to replace each iteration",0) \
+  ARG(ARG_DBL0,refine_threshhold,NULL,"rfth","the average distance (in pixels) points must move less than to terminate refinement",28.0) \
   ARG(ARG_DBL0,alpha,"a","alpha","weight of E_image; 1 in the original paper",1.0) \
   ARG(ARG_DBL0,beta,"b","beta","weight of E_length; 0.5 in the original paper",0.5) \
   ARG(ARG_DBL0,gamma,"g","gamma","weight of E_smoothness; 0.5 in the original paper",0.5) \
@@ -134,7 +134,7 @@ double* compute_distances(point_t* list, int n) {
   int i,j;
   for(i=0; i<n; i++) {
     for(j=0; j<n; j++) {
-      table[ix++] = distance(list[i],list[j]);
+      table[ix++] = distance_i(list[i],list[j]);
       progress(ix,n2,0,"distances");
     }
   }
@@ -242,13 +242,15 @@ int find_tip(int k, const int* mst, const double* distances, int* previous, int 
  * discarding the rest of the MST
  */
 
-point_t* trace_backbone(int tip, const int* mst, const double* distances, const point_t* list, int n, int* backbone_length) {
+dpoint_t* trace_backbone(int tip, const int* mst, const double* distances, const point_t* list, int n, int* backbone_length) {
   int* previous = malloc(sizeof(int)*n);
   int tip2 = find_tip(tip,mst,distances,previous,n);
-  point_t* backbone = malloc(sizeof(point_t)*n);
-  int i,j=0;
+  dpoint_t* backbone = malloc(sizeof(dpoint_t)*n);
+  int i,j,c=0;
   for(i=tip2;i!=-1;i=previous[i]) {
-    backbone[j]=list[i];
+    for(c=0;c<3;c++) {
+      backbone[j].p[c]=list[i].p[c];
+    }
     backbone[j].index=j;
     j++;
     progress(j,n,0,"controls");
@@ -265,27 +267,31 @@ point_t* trace_backbone(int tip, const int* mst, const double* distances, const 
  * based on length, smoothness, and correspondence to reality
  */
 
-void refine_backbone(const image_t* image, point_t* sample, const args_t* args, point_t* backbone, int n) {
+void refine_backbone(const image_t* image, point_t* sample, const args_t* args, dpoint_t* backbone, int n) {
   double iter_delta = INFINITY;
   double iter_delta_init = INFINITY;
-  point_t* backbone_new = malloc(n*sizeof(point_t));
+  dpoint_t* backbone_new = malloc(n*sizeof(dpoint_t));
   double* total_brightness = malloc(n*sizeof(double));
   dpoint_t* weighted_sum = malloc(n*sizeof(dpoint_t));
-  int iterations = 1;
+  int iterations = 0;
+  printf("\n\n\n\n\n");
   progress(iterations,100,0,"iterations");
-  progress(-1,100,1,"nodes");
-  progress(-1,100,2,"pixels");
-  progress(-1,100,3,"controls");
+  progress(0,100,1,"nodes");
+  progress(0,100,3,"pixels");
+  progress(0,100,4,"controls");
   while(iter_delta > args->refine_threshhold) {
     kdtree_t* kdtree;
+    int i;
+
+    for(i=0;i<n;i++) {
+    }
 
     memset(total_brightness,0,n*sizeof(double));
     memset(weighted_sum,0,n*sizeof(dpoint_t));
 
     kdtree = kdtree_build(backbone,n);
-    int i;
     if(iter_delta!=INFINITY)
-      progress(1,args->refine_sample_size,2,"pixels");
+      progress(1,args->refine_sample_size,3,"pixels");
     for(i=0;i<args->refine_sample_size;i++) {
       unsigned short brightness = pixel_get(image,sample[i]);
       int nn = kdtree_search(kdtree, sample[i])->location.index;
@@ -294,12 +300,12 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
       weighted_sum[nn].p[1]+=brightness*sample[i].p[1];
       weighted_sum[nn].p[2]+=brightness*sample[i].p[2];
       if(iter_delta!=INFINITY)
-        progress(i+1,args->refine_sample_size,2,"pixels");
+        progress(i+1,args->refine_sample_size,3,"pixels");
     }
 
     iter_delta = 0;
-    for(i=0;i<n;i++) {
-      point_t minus2,minus1,here,plus1,plus2;
+    for(i=1;i<n;i++) {
+      dpoint_t minus2,minus1,here,plus1,plus2;
       if(i<2) {
         minus2=backbone[0];
         minus1=backbone[0];
@@ -316,15 +322,21 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
       }
       here=backbone[i];
       int c;
+      if(total_brightness[i]!=0) {
+        for(c=0;c<3;c++) {
+          backbone_new[i].p[c]=(args->alpha*(weighted_sum[i].p[c]/total_brightness[i]));
+        }
+      }
       for(c=0;c<3;c++) {
-        backbone_new[i].p[c]=(args->alpha*(weighted_sum[i].p[c]/total_brightness[i])\
-                             +args->beta*(minus1.p[c]+plus1.p[c])\
+        backbone_new[i].p[c]+=(args->beta*(minus1.p[c]+plus1.p[c])\
                              +args->gamma*(1.5*(minus1.p[c]+plus1.p[c])-0.5*(minus2.p[c]+plus2.p[c]))
-                             +args->delta*here.p[c])
-                             /(args->alpha+args->beta+args->gamma+args->delta);
+                             +args->delta*here.p[c]);
+      }
+      for(c=0;c<3;c++) {
+        backbone_new[i].p[c]/=(args->alpha+args->beta*2.0+args->gamma*2.0+args->delta);
       }
       iter_delta+=distance(backbone[i],backbone_new[i]);
-      progress(i+1,n,3,"controls");
+      progress(i+1,n,4,"controls");
     }
     iter_delta/=n;
     if(iter_delta_init==INFINITY) iter_delta_init=iter_delta;
@@ -333,7 +345,6 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
 
     replace_in_sample(image,sample,args->refine_refresh_size);
     
-    //printf("\n%lf,%lf\n",(iter_delta_init*4-iter_delta),(iter_delta_init*4-args->refine_threshhold));
     //progress((int)(iter_delta_init*4-iter_delta),(int)(iter_delta_init*4-args->refine_threshhold),0,"iterations");
     if(iterations<99)
       progress(iterations++,100,0,"iterations");
@@ -398,7 +409,7 @@ int main(int argc, char** argv) {
   step_end();
 
   step_start("Tracing backbone");
-    point_t* backbone;
+    dpoint_t* backbone;
     int n;
     backbone=trace_backbone(tip,mst,distances,w,args.mst_sample_size,&n);
   step_end();

@@ -74,19 +74,14 @@ void progress(int i, int n, int l, char* desc) {
   static int last_l=0;
   int k;
   if(i<=1) {
-    if(i==-1) {
-      while(l>last_l) {
-        printf("\033[u\n\033[s");
-        last_l++;
-      }
-    }
     printf("\033[1G[>");
     for(k=0;k<PROGRESS_BAR_WIDTH;k++) {
       printf(" ");
     }
-    printf("]                   %10s\033[s",desc);
+    printf("]                    %10s (%d,%d)\033[s",desc,l,last_l);
     fflush(stdout);
-  } else {
+  }
+  if(i>=0) {
     if(l>last_l) {
       printf("\033[%dE",l-last_l);
       last_l=l;
@@ -94,12 +89,10 @@ void progress(int i, int n, int l, char* desc) {
       printf("\033[%dF",last_l-l);
       last_l=l;
     }
-  }
-  if(i>=0) {
     if ((n/PROGRESS_BAR_WIDTH) == 0 || (i-1)%(n/PROGRESS_BAR_WIDTH) == 0) {
       if(i/((double)n/PROGRESS_BAR_WIDTH)<=PROGRESS_BAR_WIDTH){
         printf("\033[%dG=>\033[%dG",2+(int)(int)((i-1)/((double)n/PROGRESS_BAR_WIDTH)),PROGRESS_BAR_WIDTH+4);
-        printf("%9d/%9d %10s", i, n, desc);
+        printf("%9d/%9d %10s\033[0K", i, n, desc);
         fflush(stdout);
       }
     }
@@ -107,7 +100,7 @@ void progress(int i, int n, int l, char* desc) {
       printf("\033[%dG Done with %s!\033[0K",PROGRESS_BAR_WIDTH+4,desc);
       fflush(stdout);
       if(l==0) {
-        printf("\033[u\n\n");
+        printf("\033[u\n\n\n");
       }
     }
   }
