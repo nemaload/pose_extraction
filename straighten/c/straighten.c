@@ -11,8 +11,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <argtable2.h>
-#include "argboiler.h"
 
 #include <math.h>
 #include <gsl/gsl_rng.h>
@@ -21,119 +19,30 @@
 
 #include "image.h"
 
-#define PROGRESS_BAR_WIDTH             120
+#define PROGRESS_BAR_WIDTH  120
 
 /*
- * Setting default parameters on the command line here.
- * Note that there are six places new command-line parameters
- * have to be added, not counting where they're used,
- * and this is only the first.
+ * I wrote a little C macro hackery called ARGBOILER,
+ * which uses the argtable2 library to parse arguments.
+ * This is the sligtly awkward, but comparatively concise,
+ * argument specification list.
  */
-#define SD_SAMPLE_SIZE_DEFAULT        1000
-#define MST_SAMPLE_SIZE_DEFAULT        150
-#define REFINE_SAMPLE_SIZE_DEFAULT     800
-#define REFINE_REFRESH_SIZE_DEFAULT     50
-#define REFINE_THRESHHOLD_DEFAULT       50.0
-#define ALPHA_DEFAULT                    1.0
-#define BETA_DEFAULT                     0.5
-#define GAMMA_DEFAULT                    0.5
-#define DELTA_DEFAULT                    0.0
 
-/*
- * This struct contains the command-line parameters.
- * You guessed it, this is the second place.
- */
-typedef struct {
-  const char* filename;
-  int width;
-  int height;
-  int sd_sample_size;
-  int mst_sample_size;
-  int refine_sample_size;
-  int refine_refresh_size;
-  double refine_threshhold;
-  double alpha;
-  double beta;
-  double gamma;
-  double delta;
-} params_t;
+#define ARGBOILER(ARG) \
+  ARG(ARG_STR1,filename,NULL,NULL,"the input image (as raw data)",NULL) \
+  ARG(ARG_INT1,width,"w","width","the width of each image slice",-1) \
+  ARG(ARG_INT1,height,"h","height","the height of each image slice",-1) \
+  ARG(ARG_INT0,sd_sample_size,NULL,"sdss","the sample size for computing standard deviation",1000) \
+  ARG(ARG_INT0,mst_sample_size,NULL,"mstss","the sample size for making the MST",150) \
+  ARG(ARG_INT0,refine_sample_size,NULL,"rfss","the sample size of E_image in refining the backbone",800) \
+  ARG(ARG_INT0,refine_refresh_size,NULL,"rfrs","the number of E_image samples to replace each iteration",50) \
+  ARG(ARG_DBL0,refine_threshhold,NULL,"rfth","the average distance (in pixels) points must move less than to terminate refinement",50.0) \
+  ARG(ARG_DBL0,alpha,"a","alpha","weight of E_image; 1 in the original paper",1.0) \
+  ARG(ARG_DBL0,beta,"b","beta","weight of E_length; 0.5 in the original paper",0.5) \
+  ARG(ARG_DBL0,gamma,"g","gamma","weight of E_smoothness; 0.5 in the original paper",0.5) \
+  ARG(ARG_DBL0,delta,"d","delta","'inertia' term (not in the original paper)",0.0)
 
-int parse_args(int argc, char** argv, params_t* params) {
-  /*
-   * We use the argtable library to parse arguments. The first step is
-   * building the titular argtable. This is the third place.
-   */
-  struct arg_str* file = arg_str1(NULL, NULL, "<file>", "the input image (raw data)");
-  struct arg_int* w = arg_int1("w", "width", "<int>", "the width of each image slice");
-  struct arg_int* h = arg_int1("h", "height", "<int>", "the height of each image slice");
-  struct arg_int* sdss = arg_int0(NULL, "sdss", "<int>", "the sample size for computing standard deviation, default " QU(SD_SAMPLE_SIZE_DEFAULT));
-  struct arg_int* mstss = arg_int0(NULL, "mstss", "<int>", "the sample size for making the MST" QU(MST_SAMPLE_SIZE_DEFAULT));
-  struct arg_int* rfss = arg_int0(NULL, "rfss", "<int>", "the sample size for E_image in refining the backbone, default" QU(REFINE_SAMPLE_SIZE_DEFAULT));
-  struct arg_int* rfrs = arg_int0(NULL, "rfrs", "<int>", "the amount of the E_image sample to replace on each iteration, default" QU(REFINE_REFRESH_SIZE_DEFAULT));
-  struct arg_dbl* rfth = arg_dbl0(NULL, "rfth", "<real>", "the average distance (in pixels) points must move less than to terminate refinement, default" QU(REFINE_THRESHHOLD_DEFAULT));
-  struct arg_dbl* alpha = arg_dbl0("a", "alpha", "<real>", "weight of E_image; 1 in the original paper, default" QU(ALPHA_DEFAULT));
-  struct arg_dbl* beta = arg_dbl0("b", "beta", "<real>", "weight of E_length; 0.5 in the original paper, default" QU(BETA_DEFAULT));
-  struct arg_dbl* gamma = arg_dbl0("g", "gamma", "<real>", "weight of E_smoothness; 0.5 in the original paper, default" QU(GAMMA_DEFAULT));
-  struct arg_dbl* delta = arg_dbl0("d", "delta", "<real>", "'inertia' term (not in the original paper), default" QU(DELTA_DEFAULT));
-  struct arg_end* end = arg_end(10);
-  /*
-   * Don't forget to actually add your new args into the argtable below
-   * before the "end" sentinel.
-   */
-  void* argtable[] = {file, w, h, sdss, mstss, rfss, rfrs, rfth, alpha, beta, gamma, delta, end};
-  int nerrors;
-
-  /*
-   * Here's the fifth place, where we fill in the defaults prior to
-   * running the arg_parse function.
-   */
-  w->ival[0] = h->ival[0] = -1;
-  sdss->ival[0] = SD_SAMPLE_SIZE_DEFAULT;
-  mstss->ival[0] = MST_SAMPLE_SIZE_DEFAULT;
-  rfss->ival[0] = REFINE_SAMPLE_SIZE_DEFAULT;
-  rfrs->ival[0] = REFINE_REFRESH_SIZE_DEFAULT;
-  rfth->dval[0] = REFINE_THRESHHOLD_DEFAULT;
-  alpha->dval[0] = ALPHA_DEFAULT;
-  beta->dval[0] = BETA_DEFAULT;
-  gamma->dval[0] = GAMMA_DEFAULT;
-  delta->dval[0] = DELTA_DEFAULT;
-
-  nerrors = arg_parse(argc, argv, argtable);
-  if(nerrors > 0) {
-    printf("\e[A");
-    arg_print_errors(stderr, end, argv[0]);
-    fprintf(stderr,"\nUsage:\n%s",argv[0]);
-    arg_print_syntaxv(stderr, argtable, "\n\n");
-    arg_print_glossary(stderr, argtable, "\t%-25s %s\n");
-    fprintf(stderr,"\n");
-    exit(nerrors);
-  } else {
-    /*
-     * Finally, here we fill in the "params" structure.
-     *
-     * TODO:
-     * There might be some way to handle these five needs
-     * while specifying arguments in only one place, by
-     * some very clever macro trickery, involving using a
-     * functional macro name as the argument to a functional
-     * macro, and defining such a higher-order macro with
-     * all the param data. I'll get to that later...
-     */
-    params->filename = file->sval[0];
-    params->width = w->ival[0];
-    params->height = h->ival[0];
-    params->sd_sample_size = sdss->ival[0];
-    params->mst_sample_size = mstss->ival[0];
-    params->refine_sample_size = rfss->ival[0];
-    params->refine_refresh_size = rfrs->ival[0];
-    params->refine_threshhold = rfth->dval[0];
-    params->alpha = alpha->dval[0];
-    params->beta = beta->dval[0];
-    params->gamma = gamma->dval[0];
-    params->delta = delta->dval[0];
-    return 0;
-  }
-}
+#include "argboiler.h"
 
 /*
  * These functions are for a primitive sort of profiling.
@@ -253,7 +162,7 @@ void progress(int i, int n, int l, char* desc) {
 /*
  * Bundle all the little initializations together
  */
-void init(image_t* image, const params_t* params) {
+void init(image_t* image, const args_t* params) {
   init_rng(image);
   image->width = params->width;
   image->height = params->height;
@@ -471,7 +380,7 @@ point_t* trace_backbone(int tip, const int* mst, const double* distances, const 
  * based on length, smoothness, and correspondence to reality
  */
 
-void refine_backbone(const image_t* image, point_t* sample, const params_t* params, point_t* backbone, int n) {
+void refine_backbone(const image_t* image, point_t* sample, const args_t* params, point_t* backbone, int n) {
   double iter_delta = INFINITY;
   double iter_delta_init = INFINITY;
   point_t* backbone_new = malloc(n*sizeof(point_t));
@@ -553,7 +462,7 @@ void refine_backbone(const image_t* image, point_t* sample, const params_t* para
  * Now, we put it all together!
  */
 int main(int argc, char** argv) {
-  params_t params;
+  args_t params;
   image_t image;
   double mean;
   double sd;
