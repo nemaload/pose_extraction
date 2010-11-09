@@ -22,15 +22,30 @@ typedef struct {
 } image_t;
 
 typedef struct {
-  int x;
-  int y;
-  int z;
+  int p[3];
+  int index;
 } point_t;
+typedef struct {
+  double p[3];
+} dpoint_t;
 
 void init_rng(image_t*);
 void compute_depth(image_t*);
 point_t random_point(const image_t*);
 unsigned short pixel_get(const image_t*, point_t);
 double distance(point_t,point_t);
+
+point_t* perform_sample(const image_t*, int);
+void replace_in_sample(const image_t*, point_t*, int);
+
+typedef struct kd_node {
+  point_t location;
+  int index;
+  struct kd_node* left;
+  struct kd_node* right;
+} kdtree_t;
+
+kdtree_t* kdtree_build(const point_t*,int);
+const kdtree_t* kdtree_search(const kdtree_t*, point_t);
 
 #endif
