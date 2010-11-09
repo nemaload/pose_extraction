@@ -21,6 +21,12 @@
 
 #include "debug.h"
 
+#define X11
+#ifdef X11
+#include <g2.h>
+#include <g2_X11.h>
+#endif
+
 /*
  * I wrote a little C macro hackery called ARGBOILER,
  * which uses the argtable2 library to parse arguments.
@@ -35,11 +41,11 @@
   ARG(ARG_INT0,sd_sample_size,NULL,"sdss","the sample size for computing standard deviation",1000) \
   ARG(ARG_INT0,mst_sample_size,NULL,"mstss","the sample size for making the MST",150) \
   ARG(ARG_INT0,refine_sample_size,NULL,"rfss","the sample size of E_image in refining the backbone",800) \
-  ARG(ARG_INT0,refine_refresh_size,NULL,"rfrs","the number of E_image samples to replace each iteration",0) \
-  ARG(ARG_DBL0,refine_threshhold,NULL,"rfth","the average distance (in pixels) points must move less than to terminate refinement",28.0) \
-  ARG(ARG_DBL0,alpha,"a","alpha","weight of E_image; 1 in the original paper",1.0) \
+  ARG(ARG_INT0,refine_refresh_size,NULL,"rfrs","the number of E_image samples to replace each iteration",10) \
+  ARG(ARG_DBL0,refine_threshhold,NULL,"rfth","the average distance (in pixels) points must move less than to terminate refinement",0.1) \
+  ARG(ARG_DBL0,alpha,"a","alpha","weight of E_image; 1 in the original paper",1.5) \
   ARG(ARG_DBL0,beta,"b","beta","weight of E_length; 0.5 in the original paper",0.5) \
-  ARG(ARG_DBL0,gamma,"g","gamma","weight of E_smoothness; 0.5 in the original paper",0.5) \
+  ARG(ARG_DBL0,gamma,"g","gamma","weight of E_smoothness; 0.5 in the original paper",0.8) \
   ARG(ARG_DBL0,delta,"d","delta","'inertia' term (not in the original paper)",0.0)
 
 #include "argboiler.h"
@@ -274,8 +280,12 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
   double* total_brightness = malloc(n*sizeof(double));
   dpoint_t* weighted_sum = malloc(n*sizeof(dpoint_t));
   int iterations = 0;
+#ifdef X11
+  int g2=g2_open_X11(image->width/3,image->height/3);
+  g2_set_auto_flush(g2,0);
+#endif
   printf("\n\n\n\n\n");
-  progress(iterations,100,0,"iterations");
+  progress(iterations,10000,0,"iterations");
   progress(0,100,1,"nodes");
   progress(0,100,2,"pixels");
   while(iter_delta > args->refine_threshhold) {
@@ -290,7 +300,7 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
 
     kdtree = kdtree_build(backbone,n);
     if(iter_delta!=INFINITY)
-      progress(1,args->refine_sample_size,3,"pixels");
+      progress(1,args->refine_sample_size,2,"pixels");
     for(i=0;i<args->refine_sample_size;i++) {
       unsigned short brightness = pixel_get(image,sample[i]);
       int nn = kdtree_search(kdtree, sample[i])->location.index;
@@ -299,10 +309,11 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
       weighted_sum[nn].p[1]+=brightness*sample[i].p[1];
       weighted_sum[nn].p[2]+=brightness*sample[i].p[2];
       if(iter_delta!=INFINITY)
-        progress(i+1,args->refine_sample_size,3,"pixels");
+        progress(i+1,args->refine_sample_size,2,"pixels");
     }
 
     iter_delta = 0;
+    backbone_new[0]=backbone[0];
     for(i=1;i<n;i++) {
       dpoint_t minus2,minus1,here,plus1,plus2;
       if(i<2) {
@@ -325,13 +336,15 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
         for(c=0;c<3;c++) {
           backbone_new[i].p[c]=(args->alpha*(weighted_sum[i].p[c]/total_brightness[i]));
         }
+      } else {
+        for(c=0;c<3;c++) {
+          backbone_new[i].p[c]=args->alpha*backbone[i].p[c];
+        }
       }
       for(c=0;c<3;c++) {
         backbone_new[i].p[c]+=(args->beta*(minus1.p[c]+plus1.p[c])\
                              +args->gamma*(1.5*(minus1.p[c]+plus1.p[c])-0.5*(minus2.p[c]+plus2.p[c]))
                              +args->delta*here.p[c]);
-      }
-      for(c=0;c<3;c++) {
         backbone_new[i].p[c]/=(args->alpha+args->beta*2.0+args->gamma*2.0+args->delta);
       }
       iter_delta+=distance(backbone[i],backbone_new[i]);
@@ -339,15 +352,24 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
     iter_delta/=n;
     if(iter_delta_init==INFINITY) iter_delta_init=iter_delta;
 
-    memcpy(backbone,backbone_new,n*sizeof(point_t));
+    memcpy(backbone,backbone_new,n*sizeof(dpoint_t));
+
+#ifdef X11
+    g2_clear(g2);
+    g2_move(g2,backbone[0].p[2]/3.0,backbone[0].p[1]/3.0);
+    g2_pen(g2,19);
+    for(i=1;i<n;i++) {
+      g2_line_to(g2,backbone[i].p[2]/3.0,backbone[i].p[1]/3.0);
+    }
+    g2_flush(g2);
+#endif
 
     replace_in_sample(image,sample,args->refine_refresh_size);
     
-    //progress((int)(iter_delta_init*4-iter_delta),(int)(iter_delta_init*4-args->refine_threshhold),0,"iterations");
-    if(iterations<99)
-      progress(iterations++,100,0,"iterations");
+    progress((int)(20.0*(iter_delta_init-iter_delta)),(int)(20.0*(iter_delta_init*4-args->refine_threshhold)),0,"iterations");
+    /*if(iterations<99)
+      progress(iterations++,10,0,"iterations");*/
   }
-  progress(100,100,0,"iterations");
   free(total_brightness);
   free(weighted_sum);
 }
