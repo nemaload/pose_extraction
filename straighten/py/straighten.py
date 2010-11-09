@@ -275,6 +275,8 @@ while(ens_d(ck_new,ck) > 40):
 
 print "Step 7 done!"
 
+sys.exit(0)
+
 plist = []
 for k in range(ck_new.shape[0]):
   p = ck_new[k]
