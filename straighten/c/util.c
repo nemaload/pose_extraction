@@ -1,4 +1,5 @@
 #include "util.h"
+#include "debug.h"
 #include <math.h>
 #include <time.h>
 #include <unistd.h>
@@ -81,8 +82,6 @@ COMPARISON_FUNCTION(2)
 
 int (*point_compare[3])(const void*,const void*) \
       = {point_compare0,point_compare1,point_compare2};
-
-void progress(int, int, int, char*);
 
 kdtree_t* kdtree_build_(const point_t* pts, int n, int depth, int* tot_i, int tot_n) {
   if(n==0) return NULL;
