@@ -302,6 +302,44 @@ void print_mst(int* mst, int n) {
   }
 }
 
+/*
+ * [Step 5/(6)]
+ * Identify the backbone of the MST by dual BFS
+ */
+
+void bfs(int k, int old_k, const int* mst, const double* distances, double a, double* output, int* previous, int n) {
+  if(output[k] < 0) {
+    int i;
+    output[k] = a;
+    previous[k] = old_k;
+    for(i=0;mst[k*n+i]>=0;i++) {
+      bfs(mst[k*n+i],k,mst,distances,a+distances[k*n+mst[k*n+i]],output,previous,n);
+    }
+  }
+}
+
+int find_tip(int k, const int* mst, const double* distances, int* previous, int n) {
+  double* output = malloc(sizeof(double)*n);
+  int malloced_previous = 0;
+  if(previous == NULL) {
+    previous = malloc(sizeof(int)*n);
+    malloced_previous = 1;
+  }
+  int i;
+  for(i=0;i<n;i++) output[i]=-1;
+  bfs(k,-1,mst,distances,0,output,previous,n);
+  double max=0;
+  int argmax=-1;
+  for(i=0;i<n;i++) {
+    if(output[i]>max) {
+      argmax=i;
+      max=output[i];
+    }
+  }
+  if(malloced_previous) free(previous);
+  free(output);
+  return argmax;
+}
 
 /*
  * Now, we put it all together!
@@ -350,7 +388,12 @@ int main(int argc, char** argv) {
   mst = compute_mst(distances, params.mst_sample_size);
   step(END, NULL);
 
-  print_mst(mst,params.mst_sample_size);
+  //print_mst(mst,params.mst_sample_size);
+
+  step(START, "Finding tip");
+  int tip;
+  tip = find_tip(0,mst,distances,NULL,params.mst_sample_size);
+  step(END, NULL);
 
   return 0;
 }
