@@ -1,4 +1,4 @@
-#include "image.h"
+#include "util.h"
 #include <math.h>
 #include <time.h>
 #include <unistd.h>

@@ -1,7 +1,7 @@
 all: straighten run
 
-straighten: straighten.c image.c image.h Makefile
-	gcc -g -O3 -largtable2 -lgsl -lgslcblas -lrt straighten.c image.c -o straighten
+straighten: straighten.c util.c util.h Makefile
+	gcc -g -O3 -largtable2 -lgsl -lgslcblas -lrt straighten.c util.c -o straighten
 
 .PHONY : run
 run:
