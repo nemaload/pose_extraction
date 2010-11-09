@@ -76,6 +76,13 @@ void progress(int i, int n, int l, char* desc) {
   static int last_l=0;
   int k;
   if(i<=1) {
+    if(l>last_l) {
+      printf("\033[%dE",l-last_l);
+      last_l=l;
+    } else if (last_l>l) {
+      printf("\033[%dF",last_l-l);
+      last_l=l;
+    }
     printf("\033[1G[>");
     for(k=0;k<PROGRESS_BAR_WIDTH;k++) {
       printf(" ");
