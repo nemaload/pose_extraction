@@ -277,8 +277,7 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
   printf("\n\n\n\n\n");
   progress(iterations,100,0,"iterations");
   progress(0,100,1,"nodes");
-  progress(0,100,3,"pixels");
-  progress(0,100,4,"controls");
+  progress(0,100,2,"pixels");
   while(iter_delta > args->refine_threshhold) {
     kdtree_t* kdtree;
     int i;
@@ -336,7 +335,6 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
         backbone_new[i].p[c]/=(args->alpha+args->beta*2.0+args->gamma*2.0+args->delta);
       }
       iter_delta+=distance(backbone[i],backbone_new[i]);
-      progress(i+1,n,4,"controls");
     }
     iter_delta/=n;
     if(iter_delta_init==INFINITY) iter_delta_init=iter_delta;

@@ -50,7 +50,9 @@ void step(se_t se, int inc, const char* desc) {
     printf("[Time spent in step %s: %lfms/%lfms]\n",num,elapsed_usr,elapsed_rt);
     total_time_rt += elapsed_rt;
     total_time_usr += elapsed_usr;
-    printf("[Running total of time: %lfms/%lfms]\n\n",total_time_usr,total_time_rt);
+    printf("[Running total of time: %lfms/%lfms]\n" \
+          "######################################" \
+        "\n######################################\n",total_time_usr,total_time_rt);
   }
 }
 double elapsed(struct timespec e_t, struct timespec s_t) {
@@ -100,7 +102,7 @@ void progress(int i, int n, int l, char* desc) {
       printf("\033[%dG Done with %s!\033[0K",PROGRESS_BAR_WIDTH+4,desc);
       fflush(stdout);
       if(l==0) {
-        printf("\033[u\n\n\n");
+        printf("\033[u\n\n");
       }
     }
   }
