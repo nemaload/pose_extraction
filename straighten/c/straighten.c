@@ -342,6 +342,25 @@ int find_tip(int k, const int* mst, const double* distances, int* previous, int 
 }
 
 /*
+ * [Step 6]
+ * Trace the backbone
+ */
+
+point_t* trace_backbone(int tip, const int* mst, const double* distances, const point_t* list, int n) {
+  int* previous = malloc(sizeof(int)*n);
+  int tip2 = find_tip(tip,mst,distances,previous,n);
+  point_t* backbone = malloc(sizeof(point_t)*n);
+  int i,j=0;
+  for(i=tip2;i!=-1;i=previous[i]) {
+    backbone[j++]=list[i];
+    progress(j,n);
+  }
+  progress(n,n);
+  free(previous);
+  return backbone;
+}
+
+/*
  * Now, we put it all together!
  */
 int main(int argc, char** argv) {
@@ -393,6 +412,11 @@ int main(int argc, char** argv) {
   step(START, "Finding tip");
   int tip;
   tip = find_tip(0,mst,distances,NULL,params.mst_sample_size);
+  step(END, NULL);
+
+  step(START, "Tracing backbone");
+  point_t* backbone;
+  backbone=trace_backbone(tip,mst,distances,w,params.mst_sample_size);
   step(END, NULL);
 
   return 0;
