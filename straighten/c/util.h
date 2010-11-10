@@ -19,6 +19,7 @@ typedef struct {
   int length;
   void* data;
   gsl_rng* r;
+  double threshhold;
 } image_t;
 
 typedef struct {
@@ -37,8 +38,8 @@ unsigned short pixel_get(const image_t*, point_t);
 double distance_i(point_t,point_t);
 double distance(dpoint_t,dpoint_t);
 
-point_t* perform_sample(const image_t*, int);
-void replace_in_sample(const image_t*, point_t*, int);
+point_t* perform_sample(const image_t*, int, double);
+void replace_in_sample(const image_t*, point_t*, int, int, double);
 
 typedef struct kd_node {
   dpoint_t location;

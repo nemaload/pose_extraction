@@ -65,18 +65,28 @@ double distance(dpoint_t a, dpoint_t b) {
   return sqrt(dx*dx+dy*dy+dz*dz);
 }
 
-point_t* perform_sample(const image_t* image, int n) {
-  int i;
+point_t* perform_sample(const image_t* image, int n, double threshhold) {
+  int i=0;
   point_t* result=malloc(sizeof(point_t)*n);
-  for(i=0;i<n;i++) 
-    result[i]=random_point(image);
+  for(i=0;i<n;i++)
+  while(i<n) {
+    point_t p = random_point(image);
+    if(pixel_get(image,p) > threshhold) {
+      result[i++]=p;
+    }
+  }
   return result;
 }
 
-void replace_in_sample(const image_t* image, point_t* sample, int n) {
-  int i;
-  for(i=0;i<n;i++)
-    sample[i]=random_point(image);
+void replace_in_sample(const image_t* image, point_t* sample, int k, int n, double threshhold) {
+  int i=0;
+  while(i<k) {
+    point_t p = random_point(image);
+    if(pixel_get(image,p) > threshhold) {
+      i++;
+      sample[gsl_rng_uniform_int(image->r,n)]=p;
+    }
+  }
 }
 
 #define COMPARISON_FUNCTION(n) \

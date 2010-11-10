@@ -364,7 +364,7 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
     g2_flush(g2);
 #endif
 
-    replace_in_sample(image,sample,args->refine_refresh_size);
+    replace_in_sample(image,sample,args->refine_refresh_size,args->refine_sample_size,image->threshhold);
     
     progress((int)(20.0*(iter_delta_init-iter_delta)),(int)(20.0*(iter_delta_init*4-args->refine_threshhold)),0,"iterations");
     /*if(iterations<99)
@@ -382,7 +382,6 @@ int main(int argc, char** argv) {
   image_t image;
   double mean;
   double sd;
-  double threshhold;
 
   printf("Parsing command line...\n");
   parse_args(argc, argv, &args);
@@ -402,13 +401,13 @@ int main(int argc, char** argv) {
   step_start("computing mean & s.d.");
     compute_sd(&image, args.sd_sample_size, &mean, &sd);
     printf("The standard deviation of %d randomly chosen points is: %lf\nThe mean is: %lf\n", args.sd_sample_size, sd, mean);
-    threshhold = mean + sd;
-    printf("The threshhold is: %lf\n", threshhold);
+    image.threshhold = mean + sd;
+    printf("The threshhold is: %lf\n", image.threshhold);
   step_end();
 
   step_start("sampling for MST");
     point_t* w;
-    w = sample_bright_points(&image, threshhold, args.mst_sample_size);
+    w = sample_bright_points(&image, image.threshhold, args.mst_sample_size);
   step_end();
 
   step_start("computing distances for MST");
@@ -436,7 +435,7 @@ int main(int argc, char** argv) {
 
   half_step_start("sampling for E_image");
     point_t* refine_sample;
-    refine_sample = perform_sample(&image,args.refine_sample_size);
+    refine_sample = perform_sample(&image,args.refine_sample_size,image.threshhold);
   step_end();
 
   step_start("Refining backbone");
