@@ -74,6 +74,7 @@ void half_step_start(const char* desc) {
 void progress(int i, int n, int l, char* desc) {
 #ifdef PROGRESS_BAR_WIDTH
   static int last_l=0;
+  static int last_i[5]={0,0,0,0,0};
   int k;
   if(i<=1) {
     if(l>last_l) {
@@ -98,7 +99,7 @@ void progress(int i, int n, int l, char* desc) {
       printf("\033[%dF",last_l-l);
       last_l=l;
     }
-    if ((n/PROGRESS_BAR_WIDTH) == 0 || (i-1)%(n/PROGRESS_BAR_WIDTH) == 0) {
+    if ((n/PROGRESS_BAR_WIDTH) == 0 || (i-1)%(n/PROGRESS_BAR_WIDTH) == 0 || (i-last_i[l])>=(i-1)%(n/PROGRESS_BAR_WIDTH)) {
       if(i/((double)n/PROGRESS_BAR_WIDTH)<=PROGRESS_BAR_WIDTH){
         printf("\033[%dG=>\033[%dG",2+(int)(int)((i-1)/((double)n/PROGRESS_BAR_WIDTH)),PROGRESS_BAR_WIDTH+4);
         printf("%9d/%9d %10s\033[0K", i, n, desc);
@@ -113,5 +114,6 @@ void progress(int i, int n, int l, char* desc) {
       }
     }
   }
+  last_i[l]=i;
 #endif
 }
