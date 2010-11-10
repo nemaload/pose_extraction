@@ -73,6 +73,7 @@ point_t* perform_sample(const image_t* image, int n, double threshhold) {
     point_t p = random_point(image);
     if(pixel_get(image,p) > threshhold) {
       result[i++]=p;
+      progress(i,n,0,"brights");
     }
   }
   return result;
