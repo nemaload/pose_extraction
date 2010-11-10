@@ -36,6 +36,7 @@
 
 #define ARGBOILER(ARG) \
   ARG(ARG_STR1,filename,NULL,NULL,"the input image (as raw data)",NULL) \
+  ARG(ARG_LITN,precache,"p","precache","mmap the image and read all the pixels, performing no processing.",0) \
   ARG(ARG_INT1,width,"w","width","the width of each image slice",-1) \
   ARG(ARG_INT1,height,"h","height","the height of each image slice",-1) \
   ARG(ARG_INT0,sd_sample_size,NULL,"sdss","the sample size for computing standard deviation",1000) \
@@ -386,7 +387,7 @@ int main(int argc, char** argv) {
   printf("Parsing command line...\n");
   parse_args(argc, argv, &args);
 
-  printf("Worm straightener v0.0.1\ncreated by David Dalrymple\n============================\n\nLet's straighten this worm!\n\n");
+  printf("Worm straightener v0.0.1\ncreated by David Dalrymple\n============================\n\n");
 
   step_start("mmapping file");
     image.data=open_mmapped_file(args.filename, &image.length);
@@ -397,6 +398,21 @@ int main(int argc, char** argv) {
     printf("File mmapped successfully...\n");
     init(&image, &args);
   step_end();
+
+  if(args.precache > 0) {
+    int i,j;
+    volatile unsigned short foo;
+    for(i=0;i<image.length/2;i++) {
+      progress(i+1,image.length/2,0,"pixels");
+      for(;((i+1)%10000)!=0 && i<image.length/2;i++) {
+        foo+=((unsigned short*)image.data)[i];
+      }
+      //printf("foo: %hd\n",foo);
+    }
+    if(args.precache > 1) {
+      return 0;
+    }
+  }
   
   step_start("computing mean & s.d.");
     compute_sd(&image, args.sd_sample_size, &mean, &sd);
