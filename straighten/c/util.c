@@ -128,13 +128,17 @@ kdtree_t* kdtree_build(const dpoint_t* pts, int n) {
   kdtree_build_(pts,n,0,&tot_i,n);
 }
 
-const kdtree_t* kdtree_search_(const kdtree_t* here, point_t point, const kdtree_t* best, int axis) {
+const kdtree_t* kdtree_search_(const kdtree_t* here, point_t point, const kdtree_t* best, double best_dist, int axis) {
   if(here==NULL)
     return best;
   if(best==NULL)
     best=here;
-  if(distance_id(here->location,point) < distance_id(best->location,point))
+
+  double here_dist = distance_id(here->location,point);
+  if(here_dist < best_dist) {
     best=here;
+    best_dist = here_dist;
+  }
 
   int left_nearer;
   kdtree_t* child;
@@ -145,19 +149,22 @@ const kdtree_t* kdtree_search_(const kdtree_t* here, point_t point, const kdtree
     child=here->right;
     left_nearer=0;
   }
-  best = kdtree_search_(child,point,best,(axis+1)%3);
 
-  if(abs(here->location.p[axis]-point.p[axis]) < distance_id(best->location,point)) {
+  best = kdtree_search_(child,point,best,best_dist,(axis+1)%3);
+  best_dist = distance_id(best->location,point);
+
+  if(abs(here->location.p[axis]-point.p[axis]) < best_dist) {
     if(left_nearer) {
       child=here->right;
     } else {
       child=here->left;
     }
-    best = kdtree_search_(child,point,best,(axis+1)%3);
+    best = kdtree_search_(child,point,best,best_dist,(axis+1)%3);
+    best_dist = distance_id(best->location,point);
   }
   return best;
 }
 
 const kdtree_t* kdtree_search(const kdtree_t* tree, point_t p) {
-  kdtree_search_(tree,p,NULL,0);
+  kdtree_search_(tree,p,NULL,0.0,0);
 }
