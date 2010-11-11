@@ -1,27 +1,25 @@
-#define QU_(x) #x
-#define QU(x) QU_(x)
-
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <unistd.h>
-#include <stdio.h>
 #include <errno.h>
-#include <stdlib.h>
-#include <string.h>
-
-
 #include <math.h>
+
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_statistics.h>
+#include <gsl/gsl_interp.h>
+#include <gsl/gsl_spline.h>
 
 #include "util.h"
-
 #include "debug.h"
 
 #define X11
+
 #ifdef X11
 #include <g2.h>
 #include <g2_X11.h>
@@ -35,23 +33,26 @@
  */
 
 #define ARGBOILER(ARG) \
-  ARG(ARG_STR1,filename,NULL,NULL,"the input image (as raw data)",NULL) \
-  ARG(ARG_LITN,precache,"p","precache","mmap the image and read all the pixels, performing no processing.",0) \
-  ARG(ARG_INT1,width,"w","width","the width of each image slice",-1) \
-  ARG(ARG_INT1,height,"h","height","the height of each image slice",-1) \
+  ARG(ARG_FIL1,input_filename,NULL,NULL,"the input image (as raw data)",NULL) \
+  ARG(ARG_INT1,input_width,"w","width","the width of each input image slice",-1) \
+  ARG(ARG_INT1,input_height,"h","height","the height of each input image slice",-1) \
+  ARG(ARG_INT0,output_width,NULL,"worm-width","the width of the output image",-1) \
+  ARG(ARG_INT0,output_height,NULL,"worm-height","the height of the output image",-1) \
+  ARG(ARG_FIL0,output_filename,"o","output","the output image (as raw data)",NULL) \
   ARG(ARG_INT0,sd_sample_size,NULL,"sdss","the sample size for computing standard deviation",1000) \
   ARG(ARG_INT0,mst_sample_size,NULL,"mstss","the sample size for making the MST",120) \
-  ARG(ARG_INT0,refine_sample_size,NULL,"rfss","the sample size of E_image in refining the backbone",2000) \
-  ARG(ARG_INT0,refine_refresh_size,NULL,"rfrs","the number of E_image samples to replace each iteration",80) \
-  ARG(ARG_DBL0,refine_threshhold,NULL,"rfth","the average distance (in pixels) points must move less than to terminate refinement",1.3) \
-  ARG(ARG_INT0,delta_history,NULL,"rfdh","the number of iterations the points must move very little in a row to count",100) \
+  ARG(ARG_INT0,refine_sample_size,NULL,"rfss","the sample size of E_image in refining the backbone",3000) \
+  ARG(ARG_INT0,refine_refresh_size,NULL,"rfrs","the number of E_image samples to replace each iteration",200) \
+  ARG(ARG_DBL0,refine_threshhold,NULL,"rfth","the average distance (in pixels) points must move less than to terminate refinement",1.45) \
+  ARG(ARG_INT0,delta_history,NULL,"rfdh","the number of iterations the points must move very little in a row to count",60) \
   ARG(ARG_LIT0,spread_voronoi,NULL,"spread","adjust control points using the nearest pixels of neighboring control points as well as their own",0) \
   ARG(ARG_LIT0,use_brightness,NULL,"weight","weight E_image by pixel brightness instead of just threshholding",0) \
   ARG(ARG_DBL0,alpha,"a","alpha","weight of E_image; 1 in the original paper",0.15) \
   ARG(ARG_DBL0,beta,"b","beta","weight of E_length; 0.5 in the original paper",1.1) \
   ARG(ARG_DBL0,gamma,"g","gamma","weight of E_smoothness; 0.5 in the original paper",0.6) \
   ARG(ARG_DBL0,delta,"d","delta","'inertia' term (not in the original paper)",2.2) \
-  ARG(ARG_DBL0,image_scale,"s","scale","factor to divide image width and height by in display",3.0)
+  ARG(ARG_DBL0,image_scale,"s","scale","factor to divide image width and height by in display",4.0) \
+  ARG(ARG_LITN,precache,"p","precache","mmap the image and read all the pixels; performing no processing if specified twice.",0) \
 
 #include "argboiler.h"
 
@@ -60,8 +61,8 @@
  */
 void init(image_t* image, const args_t* args) {
   init_rng(image);
-  image->width = args->width;
-  image->height = args->height;
+  image->width = args->input_width;
+  image->height = args->input_height;
   compute_depth(image);
 }
 
@@ -70,7 +71,7 @@ void init(image_t* image, const args_t* args) {
  * Here's where the action begins - step 0 of the algorithm, loading
  * the file - well, not loading it per se, but mmaping it.
  */
-void* open_mmapped_file(const char* filename, int* length) {
+void* open_mmapped_file_read(const char* filename, int* length) {
   struct stat fs;
   int fd;
   void* region;
@@ -257,7 +258,7 @@ dpoint_t* trace_backbone(int tip, const int* mst, const double* distances, const
   int* previous = malloc(sizeof(int)*n);
   int tip2 = find_tip(tip,mst,distances,previous,n);
   dpoint_t* backbone = malloc(sizeof(dpoint_t)*n);
-  int i,j,c=0;
+  int i,j=0,c=0;
   for(i=tip2;i!=-1;i=previous[i]) {
     for(c=0;c<3;c++) {
       backbone[j].p[c]=list[i].p[c];
@@ -278,6 +279,29 @@ dpoint_t* trace_backbone(int tip, const int* mst, const double* distances, const
  * based on length, smoothness, and correspondence to reality
  */
 
+void draw_image(int g2, const image_t* image, const args_t* args) {
+  int width = image->width/args->image_scale;
+  int height = image->height/args->image_scale;
+  static int* pens = NULL;
+  if(pens==NULL) {
+    pens = malloc(width*height*sizeof(int));
+    int i,j;
+    point_t p;
+    p.p[0] = image->depth/2;
+    for(i=0;i<width;i++) {
+      p.p[2] = (int)(i*args->image_scale);
+      for(j=0;j<height;j++) {
+        printf("(%d,%d)\n",i,j);
+        p.p[1] = (int)(j*args->image_scale);
+        double brightness = pixel_get(image,p)/(double)(0x1<<10);
+        int pen = g2_ink(g2,brightness,brightness,brightness);
+        pens[j*width+i]=pen;
+      }
+    }
+  }
+  g2_image(g2,0.0,0.0,width,height,pens);
+}
+
 void refine_backbone(const image_t* image, point_t* sample, const args_t* args, dpoint_t* backbone, int n) {
   double iter_delta = INFINITY;
   double iter_delta_init = INFINITY;
@@ -286,8 +310,9 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
   dpoint_t* weighted_sum = malloc(n*sizeof(dpoint_t));
   int iterations = 0;
   int delta_history = 0;
+  int i;
 #ifdef X11
-  int g2=g2_open_X11(image->width/3,image->height/3);
+  int g2=g2_open_X11(image->width/args->image_scale,image->height/args->image_scale);
   g2_set_auto_flush(g2,0);
 #endif
   printf("\n\n\n\n\n");
@@ -296,7 +321,6 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
   progress(0,100,2,"pixels");
   while(delta_history < args->delta_history) {
     kdtree_t* kdtree;
-    int i;
 
     memset(total_brightness,0,n*sizeof(double));
     memset(weighted_sum,0,n*sizeof(dpoint_t));
@@ -315,7 +339,7 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
 #ifndef X11
 #define ACCOUNT_POINT ACCOUNT_POINT_
 #else
-#define ACCOUNT_POINT ACCOUNT_POINT_; g2_move(g2,backbone[nn].p[2]/args->image_scale,backbone[nn].p[1]/args->image_scale); g2_pen(g2,19); g2_line_to(g2,sample[i].p[2]/args->image_scale,sample[i].p[1]/args->image_scale)
+#define ACCOUNT_POINT ACCOUNT_POINT_; g2_move(g2,backbone[nn].p[2]/args->image_scale,image->height/args->image_scale-backbone[nn].p[1]/args->image_scale); g2_pen(g2,7); g2_line_to(g2,sample[i].p[2]/args->image_scale,image->height/args->image_scale-sample[i].p[1]/args->image_scale)
 #endif
       ACCOUNT_POINT;
       if(args->spread_voronoi) {
@@ -388,16 +412,17 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
     } else {
       delta_history = 0;
     }
+    //printf("iter_delta: %lf\n", iter_delta);
 
     memcpy(backbone,backbone_new,n*sizeof(dpoint_t));
 
 #ifdef X11
     g2_pen(g2,0);
     g2_filled_rectangle(g2,0,0,(double)image->width/args->image_scale,(double)image->height/args->image_scale);
-    g2_move(g2,backbone[0].p[2]/args->image_scale,backbone[0].p[1]/args->image_scale);
+    g2_move(g2,backbone[0].p[2]/args->image_scale,image->height/args->image_scale-backbone[0].p[1]/args->image_scale);
     g2_pen(g2,19);
     for(i=1;i<n;i++) {
-      g2_line_to(g2,backbone[i].p[2]/args->image_scale,backbone[i].p[1]/args->image_scale);
+      g2_line_to(g2,backbone[i].p[2]/args->image_scale,image->height/args->image_scale-backbone[i].p[1]/args->image_scale);
     }
 #endif
 
@@ -408,11 +433,136 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
       progress(iterations++,10,0,"iterations");*/
   }
 #ifdef X11
+  g2_pen(g2,0);
+  g2_filled_rectangle(g2,0,0,(double)image->width/args->image_scale,(double)image->height/args->image_scale);
+  //draw_image(g2,image,args);
+  g2_move(g2,backbone[0].p[2]/args->image_scale,image->height/args->image_scale-backbone[0].p[1]/args->image_scale);
+  g2_pen(g2,19);
+  for(i=1;i<n;i++) {
+    g2_line_to(g2,backbone[i].p[2]/args->image_scale,image->height/args->image_scale-backbone[i].p[1]/args->image_scale);
+  }
   g2_flush(g2);
-  usleep(10000000);
+  usleep(100000);
 #endif
   free(total_brightness);
   free(weighted_sum);
+}
+
+/*
+ * [Step 9]
+ * Open the output image with mmap
+ */
+void* open_mmapped_file_write(const char* filename, int length) {
+  struct stat fs;
+  int fd;
+  void* region;
+  
+  //Now get a file descriptor and mmap!
+  fd = open(filename, O_RDWR|O_TRUNC|O_CREAT, S_IRUSR|S_IWUSR|S_IROTH|S_IWOTH);
+  if(fd<0) {
+    perror("couldn't open file");
+    printf("file was: %s\n",filename);
+  }
+  ftruncate(fd,length);
+  region=mmap(NULL, length, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+  if(region==MAP_FAILED) {
+    perror("couldn't mmap file");
+  }
+
+  return region;
+}
+
+/*
+ * [Step 8]
+ * Actually straighten the image by restacking along a spline defined by the backbone.
+ */
+void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_t* backbone, int n) {
+  /*
+   * First, we define the multidimensional spline, by walking along the control
+   * points, measuring the total distance walked, and using that as the parameter
+   * for three single-dimensional splines.
+   */
+  double* xa = malloc(sizeof(double)*n);
+#define PTS_LIST_ALLOC(c) \
+  double* y##c = malloc(sizeof(double)*n);
+  FOREACH3(PTS_LIST_ALLOC)
+  int i,j,k;
+  xa[0]=0.0;
+  for(i=1;i<n;i++) {
+    xa[i] = xa[i-1]+distance(backbone[i],backbone[i-1]);
+#define PTS_SPLIT(c) \
+    y##c[i] = backbone[i].p[c];
+    FOREACH3(PTS_SPLIT)
+  }
+  i=0;
+  FOREACH3(PTS_SPLIT)
+#define GSL_INIT(c) \
+  gsl_spline* spl##c = gsl_spline_alloc(gsl_interp_cspline,n); \
+  gsl_interp_accel* accel##c = gsl_interp_accel_alloc(); \
+  gsl_spline_init(spl##c,xa,y##c,n);
+  FOREACH3(GSL_INIT)
+
+  const char* filename;
+  const char* suffix=".out";
+  if(args->output_filename==NULL) {
+    char * filename_=calloc(strlen(args->input_filename)+strlen(suffix),1);
+    strcat(filename_,args->input_filename);
+    strcat(filename_,suffix);
+    filename = filename_;
+  } else {
+    filename = args->output_filename;
+  }
+  if(args->output_width==-1) {
+    dst->width=src->width/5;
+    printf("Output width automatically determined: %d\n",dst->width);
+  } else {
+    dst->width = args->output_width;
+  }
+  if(args->output_height==-1) {
+    dst->height=(int)xa[n-1];
+    printf("Output height automatically determined: %d\n",dst->height);
+  } else {
+    dst->height = args->output_height;
+  }
+  int length;
+
+#ifndef RESTACK_3D //TODO: do 3D restacking
+
+  dst->depth = 1;
+  length = dst->width*dst->height*2;
+  dst->data = (open_mmapped_file_write(filename,length));
+  unsigned short* data = (unsigned short*)dst->data;
+
+  for(i=0;i<dst->height;i++) {
+#define GET_P_D(c) \
+    double p##c = gsl_spline_eval(spl##c,i,accel##c); \
+    double d##c = gsl_spline_eval_deriv(spl##c,i,accel##c); \
+    double dy##c;
+    FOREACH3(GET_P_D)
+    dy0=0;
+    dy1=d2;
+    dy2=-d1;
+    double magnitude = sqrt(dy1*dy1+dy2*dy2);
+    dy1/=magnitude;
+    dy2/=magnitude;
+    /*if(i<50) {
+      printf("spline point:\t%lf\t%lf\t%lf\nd:\t%lf\t%lf\t%lf\ndy:\t%lf\t%lf\t%lf\n",p0,p1,p2,d0,d1,d2,dy0,dy1,dy2);
+    }*/
+#define INIT_P(c) \
+    p##c -= dy##c*dst->width/2;
+    FOREACH3(INIT_P)
+    for(j=0;j<dst->width;j++) {
+      unsigned short pixel = 0;
+      if(p0>0&&p1>0&&p2>0&&p0<src->depth&&p1<src->height&&p2<src->width) {
+        pixel = ((unsigned short*)src->data)[(int)(p0)*src->height*src->width+(int)(p1)*src->width+(int)(p2)];
+      }
+      data[i*dst->width+j]=pixel;
+#define INC_P(c) \
+      p##c += dy##c;
+      FOREACH3(INC_P)
+    }
+  }
+#endif
 }
 
 /*
@@ -420,7 +570,7 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
  */
 int main(int argc, char** argv) {
   args_t args;
-  image_t image;
+  image_t input;
   double mean;
   double sd;
 
@@ -430,13 +580,13 @@ int main(int argc, char** argv) {
   printf("Worm straightener v0.0.1\ncreated by David Dalrymple\n============================\n\n");
 
   step_start("mmapping file");
-    image.data=open_mmapped_file(args.filename, &image.length);
-    if(image.data==NULL) {
+    input.data=open_mmapped_file_read(args.input_filename, &input.length);
+    if(input.data==NULL) {
       perror("mmap failed");
       return 1;
     }
     printf("File mmapped successfully...\n");
-    init(&image, &args);
+    init(&input, &args);
   step_end();
 
   if(args.precache > 0) {
@@ -444,10 +594,10 @@ int main(int argc, char** argv) {
     volatile unsigned short foo;
     long pagesize = sysconf(_SC_PAGESIZE);
     half_step_start("precaching file");
-    for(i=0;i*pagesize<image.length/2;i++) {
-      progress(i+1,image.length/2/pagesize,0,"pages");
-      for(;((i+1)%10)!=0 && i*pagesize<image.length/2;i++) {
-        foo+=((unsigned short*)image.data)[i*pagesize];
+    for(i=0;i*pagesize<input.length/2;i++) {
+      progress(i+1,input.length/2/pagesize,0,"pages");
+      for(;((i+1)%10)!=0 && i*pagesize<input.length/2;i++) {
+        foo+=((unsigned short*)input.data)[i*pagesize];
       }
       //printf("foo: %hd\n",foo);
     }
@@ -458,15 +608,15 @@ int main(int argc, char** argv) {
   }
   
   step_start("computing mean & s.d.");
-    compute_sd(&image, args.sd_sample_size, &mean, &sd);
+    compute_sd(&input, args.sd_sample_size, &mean, &sd);
     printf("The standard deviation of %d randomly chosen points is: %lf\nThe mean is: %lf\n", args.sd_sample_size, sd, mean);
-    image.threshhold = mean + sd;
-    printf("The threshhold is: %lf\n", image.threshhold);
+    input.threshhold = mean + sd/2;
+    printf("The threshhold is: %lf\n", input.threshhold);
   step_end();
 
   step_start("sampling for MST");
     point_t* w;
-    w = sample_bright_points(&image, image.threshhold, args.mst_sample_size);
+    w = sample_bright_points(&input, input.threshhold, args.mst_sample_size);
   step_end();
 
   step_start("computing distances for MST");
@@ -494,11 +644,16 @@ int main(int argc, char** argv) {
 
   half_step_start("sampling for E_image");
     point_t* refine_sample;
-    refine_sample = perform_sample(&image,args.refine_sample_size,image.threshhold);
+    refine_sample = perform_sample(&input,args.refine_sample_size,input.threshhold);
   step_end();
 
   step_start("Refining backbone");
-    refine_backbone(&image,refine_sample,&args,backbone,n);
+    refine_backbone(&input,refine_sample,&args,backbone,n);
+  step_end();
+
+  step_start("Restacking to output file");
+    image_t output;
+    restack_image(&output,&input,&args,backbone,n);
   step_end();
 
   return 0;
