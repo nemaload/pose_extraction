@@ -94,6 +94,22 @@ void* open_mmapped_file_read(const char* filename, int* length) {
 }
 
 /*
+ * [Step 0.5]
+ * Precaching option (-p)
+ */
+void precache_file(image_t input) {
+    int i,j;
+    volatile unsigned short foo;
+    long pagesize = sysconf(_SC_PAGESIZE);
+    for(i=0;i*pagesize<input.length/2;i++) {
+      progress(i+1,input.length/2/pagesize,0,"pages");
+      for(;((i+1)%10)!=0 && i*pagesize<input.length/2;i++) {
+        foo+=((unsigned short*)input.data)[i*pagesize];
+      }
+    }
+}
+
+/*
  * [Step 1]
  * Here we compute the mean and standard deviation of the data;
  * but to avoid actually reading in all that data, we take a random
@@ -619,17 +635,8 @@ int main(int argc, char** argv) {
   step_end();
 
   if(args.precache > 0) {
-    int i,j;
-    volatile unsigned short foo;
-    long pagesize = sysconf(_SC_PAGESIZE);
     half_step_start("precaching file");
-    for(i=0;i*pagesize<input.length/2;i++) {
-      progress(i+1,input.length/2/pagesize,0,"pages");
-      for(;((i+1)%10)!=0 && i*pagesize<input.length/2;i++) {
-        foo+=((unsigned short*)input.data)[i*pagesize];
-      }
-      //printf("foo: %hd\n",foo);
-    }
+      precache_file(input);
     step_end();
     if(args.precache > 1) {
       return 0;
