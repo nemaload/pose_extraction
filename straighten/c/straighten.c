@@ -47,9 +47,9 @@
   ARG(ARG_INT0,refine_refresh_size,NULL,"rfrs","the number of E_image samples to replace each iteration",200) \
   ARG(ARG_DBL0,refine_threshhold,NULL,"rfth","the average distance (in pixels) points must move less than to terminate refinement",1.45) \
   ARG(ARG_INT0,delta_history,NULL,"rfdh","the number of iterations the points must move very little in a row to count",60) \
-  ARG(ARG_LIT0,spread_voronoi,NULL,"spread","adjust control points using the nearest pixels of neighboring control points as well as their own",0) \
-  ARG(ARG_LIT0,use_brightness,NULL,"weight","weight E_image by pixel brightness instead of just threshholding",0) \
-  ARG(ARG_LIT0,no_interpolate,NULL,"no-interpolate","don't interpolate input pixels when restacking",0) \
+  ARG(ARG_LIT0,spread_voronoi,"3","spread","adjust control points using the nearest pixels of neighboring control points as well as their own",0) \
+  ARG(ARG_LIT0,use_brightness,"r","weight","weight E_image by pixel brightness instead of just threshholding",0) \
+  ARG(ARG_LIT0,no_interpolate,"c","no-interpolate","don't interpolate input pixels when restacking",0) \
   ARG(ARG_DBL0,alpha,"a","alpha","weight of E_image; 1 in the original paper",0.15) \
   ARG(ARG_DBL0,beta,"b","beta","weight of E_length; 0.5 in the original paper",1.1) \
   ARG(ARG_DBL0,gamma,"g","gamma","weight of E_smoothness; 0.5 in the original paper",0.6) \
