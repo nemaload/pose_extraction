@@ -329,15 +329,12 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
   dpoint_t* weighted_sum = malloc(n*sizeof(dpoint_t));
   int iterations = 0;
   int delta_history = 0;
+  char spinner[] = "-\\|/";
   int i;
 #ifdef X11
   int g2=g2_open_X11(image->width/args->image_scale,image->height/args->image_scale);
   g2_set_auto_flush(g2,0);
 #endif
-  printf("\n\n\n\n\n");
-  progress(iterations,10000,0,"iterations");
-  progress(0,100,1,"nodes");
-  progress(0,100,2,"pixels");
   while(delta_history < args->delta_history) {
     kdtree_t* kdtree;
 
@@ -345,8 +342,6 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
     memset(weighted_sum,0,n*sizeof(dpoint_t));
 
     kdtree = kdtree_build(backbone,n);
-    if(iter_delta!=INFINITY)
-      progress(1,args->refine_sample_size,2,"pixels");
     for(i=0;i<args->refine_sample_size;i++) {
       unsigned short brightness = 1;
       int nn = kdtree_search(kdtree, sample[i])->location.index;
@@ -371,8 +366,6 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
           ACCOUNT_POINT;
         }
       }
-      if(iter_delta!=INFINITY)
-        progress(i+1,args->refine_sample_size,2,"pixels");
     }
     kdtree_free(kdtree);
 #ifdef X11
@@ -446,11 +439,11 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
 #endif
 
     replace_in_sample(image,sample,args->refine_refresh_size,args->refine_sample_size,image->threshhold);
-    
-    progress((int)(20.0*(iter_delta_init-iter_delta)),(int)(20.0*(iter_delta_init*4-args->refine_threshhold)),0,"iterations");
-    /*if(iterations<99)
-      progress(iterations++,10,0,"iterations");*/
+
+    printf("\e[0G[%c] iteration: %d; delta: %lf",spinner[iterations%(sizeof(spinner)-1)],iterations++,iter_delta);
+    fflush(stdout);
   }
+  printf("\n\n");
 #ifdef X11
   g2_pen(g2,0);
   g2_filled_rectangle(g2,0,0,(double)image->width/args->image_scale,(double)image->height/args->image_scale);
