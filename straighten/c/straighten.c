@@ -41,6 +41,7 @@
   ARG(ARG_INT0,output_extension,NULL,"worm-extension","how many pixels on either edge of the backbone to include (head and tail)",-1) \
   ARG(ARG_FIL0,output_filename,"o","output","the output image (as raw data)",NULL) \
   ARG(ARG_INT0,sd_sample_size,NULL,"sdss","the sample size for computing standard deviation",1000) \
+  ARG(ARG_DBL0,thresh_sds,"t","thresh","the number of standard deviations above mean makes a pixel considered part of the worm",0.5) \
   ARG(ARG_INT0,mst_sample_size,NULL,"mstss","the sample size for making the MST",120) \
   ARG(ARG_INT0,refine_sample_size,NULL,"rfss","the sample size of E_image in refining the backbone",3000) \
   ARG(ARG_INT0,refine_refresh_size,NULL,"rfrs","the number of E_image samples to replace each iteration",200) \
@@ -638,7 +639,7 @@ int main(int argc, char** argv) {
   step_start("computing mean & s.d.");
     compute_sd(&input, args.sd_sample_size, &mean, &sd);
     printf("The standard deviation of %d randomly chosen points is: %lf\nThe mean is: %lf\n", args.sd_sample_size, sd, mean);
-    input.threshhold = mean + sd/2;
+    input.threshhold = mean + sd*args.thresh_sds;
     printf("The threshhold is: %lf\n", input.threshhold);
   step_end();
 
