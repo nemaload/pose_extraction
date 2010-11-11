@@ -275,8 +275,6 @@ while(ens_d(ck_new,ck) > 40):
 
 print "Step 7 done!"
 
-sys.exit(0)
-
 plist = []
 for k in range(ck_new.shape[0]):
   p = ck_new[k]
@@ -287,6 +285,8 @@ for p in ps:
 
 for k in range(ck_new.shape[0]-1):
   prim_arrow(ck_new[k],ck_new[k+1],color="red")
+
+plt.show()
 
 #Step 9 - mmaping output image
 
