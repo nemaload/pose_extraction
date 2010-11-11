@@ -38,6 +38,7 @@
   ARG(ARG_INT1,input_height,"h","height","the height of each input image slice",-1) \
   ARG(ARG_INT0,output_width,NULL,"worm-width","the width of the output image",-1) \
   ARG(ARG_INT0,output_height,NULL,"worm-height","the height of the output image",-1) \
+  ARG(ARG_INT0,output_extension,NULL,"worm-extension","how many pixels on either edge of the backbone to include (head and tail)",-1) \
   ARG(ARG_FIL0,output_filename,"o","output","the output image (as raw data)",NULL) \
   ARG(ARG_INT0,sd_sample_size,NULL,"sdss","the sample size for computing standard deviation",1000) \
   ARG(ARG_INT0,mst_sample_size,NULL,"mstss","the sample size for making the MST",120) \
@@ -518,8 +519,14 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
   } else {
     dst->width = args->output_width;
   }
+  int extension;
+  if(args->output_extension==-1) {
+    extension = dst->width;
+  } else {
+    extension = args->output_extension;
+  }
   if(args->output_height==-1) {
-    dst->height=(int)xa[n-1];
+    dst->height=(int)xa[n-1]+2*extension;
     printf("Output height automatically determined: %d\n",dst->height);
   } else {
     dst->height = args->output_height;
@@ -535,8 +542,8 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
 
   for(i=0;i<dst->height;i++) {
 #define GET_P_D(c) \
-    double p##c = gsl_spline_eval(spl##c,i,accel##c); \
-    double d##c = gsl_spline_eval_deriv(spl##c,i,accel##c); \
+    double p##c = gsl_spline_eval(spl##c,i-extension,accel##c); \
+    double d##c = gsl_spline_eval_deriv(spl##c,i-extension,accel##c); \
     double dy##c;
     FOREACH3(GET_P_D)
     dy0=0;
