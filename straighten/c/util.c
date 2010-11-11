@@ -44,25 +44,46 @@ unsigned short pixel_get(const image_t* i, point_t p) {
   return ((unsigned short*)i->data)[p.p[0]*i->width*i->height+p.p[1]*i->width+p.p[2]];
 }
 
+
+#define DISTANCE_I(c) double d##c = (double)b.p[c]-a.p[c];
+#define DISTANCE_RET return sqrt(d0*d0+d1*d1+d2*d2);
+#define DISTANCE_I_ \
+  FOREACH3(DISTANCE_I) \
+  DISTANCE_RET
+
 double distance_id(dpoint_t a, point_t b) {
-  double dx=(double)b.p[2]-a.p[2];
-  double dy=(double)b.p[1]-a.p[1];
-  double dz=(double)b.p[0]-a.p[0];
-  return sqrt(dx*dx+dy*dy+dz*dz);
+  DISTANCE_I_
 }
 
 double distance_i(point_t a, point_t b) {
-  double dx=(double)a.p[2]-b.p[2];
-  double dy=(double)a.p[1]-b.p[1];
-  double dz=(double)a.p[0]-b.p[0];
-  return sqrt(dx*dx+dy*dy+dz*dz);
+  DISTANCE_I_
 }
 
+#define DISTANCE_D(c) double d##c = b.p[c]-a.p[c];
 double distance(dpoint_t a, dpoint_t b) {
-  double dx=a.p[2]-b.p[2];
-  double dy=a.p[1]-b.p[1];
-  double dz=a.p[0]-b.p[0];
-  return sqrt(dx*dx+dy*dy+dz*dz);
+  FOREACH3(DISTANCE_D)
+  DISTANCE_RET
+}
+
+#define REFLECT_D(c) b.p[c]=v.p[c]+(v.p[c]-a.p[c]);
+dpoint_t reflect(dpoint_t a, dpoint_t v) {
+  dpoint_t b;
+  FOREACH3(REFLECT_D)
+  return b;
+}
+
+#define REFLECT2_D(c) b.p[c]=v.p[c]+2*(v.p[c]-a.p[c]);
+dpoint_t reflect2(dpoint_t a, dpoint_t v) {
+  dpoint_t b;
+  FOREACH3(REFLECT2_D)
+  return b;
+}
+
+#define PRINT_D(c) printf("\t%lf", p.p[c]);
+void print_dpoint(dpoint_t p) {
+  printf("point:");
+  FOREACH3(PRINT_D)
+  printf("\n");
 }
 
 point_t* perform_sample(const image_t* image, int n, double threshhold) {
@@ -167,4 +188,11 @@ const kdtree_t* kdtree_search_(const kdtree_t* here, point_t point, const kdtree
 
 const kdtree_t* kdtree_search(const kdtree_t* tree, point_t p) {
   kdtree_search_(tree,p,NULL,0.0,0);
+}
+
+void kdtree_free(kdtree_t* tree) {
+  if(tree==NULL) return;
+  kdtree_free(tree->left);
+  kdtree_free(tree->right);
+  free(tree);
 }

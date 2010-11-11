@@ -3,6 +3,11 @@
 
 #include <gsl/gsl_rng.h>
 
+#define FOREACH3(M) \
+  M(2) \
+  M(1) \
+  M(0)
+
 /*
  * This struct is passed around by most of the functions,
  * and besides containing a pointer to the region of address space
@@ -38,6 +43,11 @@ unsigned short pixel_get(const image_t*, point_t);
 double distance_i(point_t,point_t);
 double distance(dpoint_t,dpoint_t);
 
+dpoint_t reflect(dpoint_t,dpoint_t);
+dpoint_t reflect2(dpoint_t,dpoint_t);
+
+void print_dpoint(dpoint_t);
+
 point_t* perform_sample(const image_t*, int, double);
 void replace_in_sample(const image_t*, point_t*, int, int, double);
 
@@ -50,5 +60,6 @@ typedef struct kd_node {
 
 kdtree_t* kdtree_build(const dpoint_t*,int);
 const kdtree_t* kdtree_search(const kdtree_t*, point_t);
+void kdtree_free(kdtree_t*);
 
 #endif

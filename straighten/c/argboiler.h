@@ -1,6 +1,6 @@
 #include <argtable2.h>
 
-#define ARG_CONSTS_(type,str,meth,lval,id,shrt,lng,desc,def) const type id##_default = def;
+#define ARG_CONSTS_(type,str,meth,lval,id,shrt,lng,desc,def) type id##_default;
 #define ARG_CONSTS(type,id,shrt,lng,desc,def) ARG_CONSTS_(type,id,shrt,lng,desc,def)
 #define ARG_STRUCT_(type,str,meth,lval,id,shrt,lng,desc,def) type id;
 #define ARG_STRUCT(type,id,shrt,lng,desc,def) ARG_STRUCT_(type,id,shrt,lng,desc,def)
@@ -8,7 +8,7 @@
 #define ARG_TABVAL(type,id,shrt,lng,desc,def) ARG_TABVAL_(type,id,shrt,lng,desc,def)
 #define ARG_TABLE_(type,str,meth,lval,id,shrt,lng,desc,def) id,
 #define ARG_TABLE(type,id,shrt,lng,desc,def) ARG_TABLE_(type,id,shrt,lng,desc,def)
-#define ARG_TABINIT_(type,str,meth,lval,id,shrt,lng,desc,def) id->lval = def;
+#define ARG_TABINIT_(type,str,meth,lval,id,shrt,lng,desc,def) id->lval = id##_default = def;
 #define ARG_TABINIT(type,id,shrt,lng,desc,def) ARG_TABINIT_(type,id,shrt,lng,desc,def)
 #define ARG_INIT_(type,str,meth,lval,id,shrt,lng,desc,def) params->id = id->lval;
 #define ARG_INIT(type,id,shrt,lng,desc,def) ARG_INIT_(type,id,shrt,lng,desc,def)
