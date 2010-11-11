@@ -1,11 +1,11 @@
 CFILES=straighten.c util.c debug.c
-GCCOPTS=-O3 -lg2 -lgd -lm -lX11 -lXext -largtable2 -lgsl -lgslcblas -lrt -o straighten
+GCCOPTS=-lg2 -lgd -lm -lX11 -lXext -largtable2 -lgsl -lgslcblas -lrt -o straighten
 RUNOPTS=../TU3335.raw --width 2437 --height 1851 -p
 
 all: straighten run
 
 straighten: debug.h Makefile $(CFILES)
-	gcc $(CFILES) $(GCCOPTS)
+	gcc -O3 $(CFILES) $(GCCOPTS)
 
 .PHONY : run
 run: straighten
