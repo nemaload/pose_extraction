@@ -48,6 +48,7 @@
   ARG(ARG_INT0,delta_history,NULL,"rfdh","the number of iterations the points must move very little in a row to count",60) \
   ARG(ARG_LIT0,spread_voronoi,NULL,"spread","adjust control points using the nearest pixels of neighboring control points as well as their own",0) \
   ARG(ARG_LIT0,use_brightness,NULL,"weight","weight E_image by pixel brightness instead of just threshholding",0) \
+  ARG(ARG_LIT0,no_interpolate,NULL,"no-interpolate","don't interpolate input pixels when restacking",0) \
   ARG(ARG_DBL0,alpha,"a","alpha","weight of E_image; 1 in the original paper",0.15) \
   ARG(ARG_DBL0,beta,"b","beta","weight of E_length; 0.5 in the original paper",1.1) \
   ARG(ARG_DBL0,gamma,"g","gamma","weight of E_smoothness; 0.5 in the original paper",0.6) \
@@ -514,7 +515,7 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
     filename = args->output_filename;
   }
   if(args->output_width==-1) {
-    dst->width=src->width/5;
+    dst->width=src->width/4;
     printf("Output width automatically determined: %d\n",dst->width);
   } else {
     dst->width = args->output_width;
@@ -560,8 +561,28 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
     FOREACH3(INIT_P)
     for(j=0;j<dst->width;j++) {
       unsigned short pixel = 0;
-      if(p0>0&&p1>0&&p2>0&&p0<src->depth&&p1<src->height&&p2<src->width) {
-        pixel = ((unsigned short*)src->data)[(int)(p0)*src->height*src->width+(int)(p1)*src->width+(int)(p2)];
+      if(p0>0&&p1>0&&p2>0&&p0<src->depth-1&&p1<src->height-1&&p2<src->width-1) {
+        if(args->no_interpolate) {
+          pixel = ((unsigned short*)src->data)[(int)(p0)*src->height*src->width+(int)(p1)*src->width+(int)(p2)];
+        } else {
+#define TRUNC_P(c) \
+          double t##c = p##c - (int)p##c;
+          FOREACH3(TRUNC_P)
+          double pixel_d=0;
+#define ONE_MINUS(a,x) (1-a+(2*a-1)*x)
+#define GET_CORNER(z,y,x) \
+          pixel_d += (ONE_MINUS(z,t0)*ONE_MINUS(y,t1)*ONE_MINUS(x,t2))*((unsigned short*)src->data)[((int)(p0)+z)*src->height*src->width+((int)(p1)+y)*src->width+((int)(p2)+z)]
+          GET_CORNER(0,0,0);
+          GET_CORNER(0,0,1);
+          GET_CORNER(0,1,0);
+          GET_CORNER(0,1,1);
+          GET_CORNER(1,0,0);
+          GET_CORNER(1,0,1);
+          GET_CORNER(1,1,0);
+          GET_CORNER(1,1,1);
+
+          pixel = (unsigned short) pixel_d;
+        }
       }
       data[i*dst->width+j]=pixel;
 #define INC_P(c) \
