@@ -20,7 +20,7 @@ debug:
 
 .PHONY : profile
 profile:
-	gcc -g -pg $(CFILES) $(GCCOPTS)
+	gcc -O3 -g -pg $(CFILES) $(GCCOPTS)
 	./straighten $(RUNOPTS)
 	gprof straighten gmon.out | less
 
