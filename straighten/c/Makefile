@@ -23,6 +23,7 @@ profile:
 	gcc -O3 -g -pg $(CFILES) $(GCCOPTS)
 	./straighten $(RUNOPTS)
 	gprof straighten gmon.out | less
+	rm gmon.out
 
 .PHONY : clean
 clean:
