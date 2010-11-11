@@ -402,13 +402,16 @@ int main(int argc, char** argv) {
   if(args.precache > 0) {
     int i,j;
     volatile unsigned short foo;
-    for(i=0;i<image.length/2;i++) {
-      progress(i+1,image.length/2,0,"pixels");
-      for(;((i+1)%10000)!=0 && i<image.length/2;i++) {
-        foo+=((unsigned short*)image.data)[i];
+    long pagesize = sysconf(_SC_PAGESIZE);
+    half_step_start("precaching file");
+    for(i=0;i*pagesize<image.length/2;i++) {
+      progress(i+1,image.length/2/pagesize,0,"pages");
+      for(;((i+1)%10)!=0 && i*pagesize<image.length/2;i++) {
+        foo+=((unsigned short*)image.data)[i*pagesize];
       }
       //printf("foo: %hd\n",foo);
     }
+    step_end();
     if(args.precache > 1) {
       return 0;
     }
