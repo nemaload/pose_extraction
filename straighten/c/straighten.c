@@ -45,7 +45,8 @@
   ARG(ARG_INT0,mst_sample_size,NULL,"mstss","the sample size for making the MST",120) \
   ARG(ARG_INT0,refine_sample_size,NULL,"rfss","the sample size of E_image in refining the backbone",3000) \
   ARG(ARG_INT0,refine_refresh_size,NULL,"rfrs","the number of E_image samples to replace each iteration",10) \
-  ARG(ARG_DBL0,refine_threshhold,NULL,"rfth","the average distance (in pixels) points must move less than to terminate refinement",1.53) \
+  ARG(ARG_DBL0,refine_threshhold,NULL,"rfth","the average distance (in pixels) points must move less than to terminate refinement",1.55) \
+  ARG(ARG_INT0,restart_iterations,NULL,"rfri","if the refinement doesn't converge after this many iterations, restart with a new MST",1000) \
   ARG(ARG_INT0,delta_history,NULL,"rfdh","the number of iterations the points must move very little in a row to count",150) \
   ARG(ARG_LIT0,spread_voronoi,"3","spread","adjust control points using the nearest pixels of neighboring control points as well as their own",0) \
   ARG(ARG_LIT0,use_brightness,"r","weight","weight E_image by pixel brightness instead of just threshholding",0) \
@@ -321,7 +322,7 @@ void draw_image(int g2, const image_t* image, const args_t* args) {
   g2_image(g2,0.0,0.0,width,height,pens);
 }
 
-void refine_backbone(const image_t* image, point_t* sample, const args_t* args, dpoint_t* backbone, int n) {
+int refine_backbone(const image_t* image, point_t* sample, const args_t* args, dpoint_t* backbone, int n) {
   double iter_delta = INFINITY;
   double iter_delta_init = INFINITY;
   dpoint_t* backbone_new = malloc(n*sizeof(dpoint_t));
@@ -341,7 +342,7 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
                                         x.p[2]/args->image_scale,\
       (image->height/args->image_scale)-x.p[1]/args->image_scale
 #endif
-  while(delta_history < args->delta_history) {
+  while(delta_history < args->delta_history && iterations < args->restart_iterations) {
     kdtree_t* kdtree;
 
     memset(total_brightness,0,n*sizeof(double));
@@ -466,6 +467,7 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
         dh_str);
     fflush(stdout);
   }
+  if(iterations >= args->restart_iterations) return 0;
   printf("\n\n");
 #ifdef X11
   G2_DRAW_BACKBONE
@@ -474,6 +476,7 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
 #endif
   free(total_brightness);
   free(weighted_sum);
+  return 1;
 }
 
 /*
@@ -631,6 +634,13 @@ int main(int argc, char** argv) {
   image_t input;
   double mean;
   double sd;
+  point_t* w;
+  double* distances;
+  int* mst;
+  int tip;
+  dpoint_t* backbone;
+  point_t* refine_sample;
+  int n;
 
   printf("Parsing command line...\n");
   parse_args(argc, argv, &args);
@@ -663,42 +673,38 @@ int main(int argc, char** argv) {
     printf("The threshhold is: %lf\n", input.threshhold);
   step_end();
 
-  step_start("sampling for MST");
-    point_t* w;
-    w = sample_bright_points(&input, input.threshhold, args.mst_sample_size);
-  step_end();
+  int refine_success=0;
+  while(!refine_success) {
+    step_start("sampling for MST");
+      w = sample_bright_points(&input, input.threshhold, args.mst_sample_size);
+    step_end();
 
-  step_start("computing distances for MST");
-    double* distances;
-    distances = compute_distances(w, args.mst_sample_size);
-  step_end();
+    step_start("computing distances for MST");
+      distances = compute_distances(w, args.mst_sample_size);
+    step_end();
 
-  step_start("Prim's algorithm");
-    int* mst;
-    mst = compute_mst(distances, args.mst_sample_size);
-  step_end();
+    step_start("Prim's algorithm");
+      mst = compute_mst(distances, args.mst_sample_size);
+    step_end();
 
-  //print_mst(mst,args.mst_sample_size);
+    //print_mst(mst,args.mst_sample_size);
 
-  step_start("Finding tip");
-    int tip;
-    tip = find_tip(0,mst,distances,NULL,args.mst_sample_size);
-  step_end();
+    step_start("Finding tip");
+      tip = find_tip(0,mst,distances,NULL,args.mst_sample_size);
+    step_end();
 
-  step_start("Tracing backbone");
-    dpoint_t* backbone;
-    int n;
-    backbone=trace_backbone(tip,mst,distances,w,args.mst_sample_size,&n);
-  step_end();
+    step_start("Tracing backbone");
+      backbone=trace_backbone(tip,mst,distances,w,args.mst_sample_size,&n);
+    step_end();
 
-  half_step_start("sampling for E_image");
-    point_t* refine_sample;
-    refine_sample = perform_sample(&input,args.refine_sample_size,input.threshhold);
-  step_end();
+    half_step_start("sampling for E_image");
+      refine_sample = perform_sample(&input,args.refine_sample_size,input.threshhold);
+    step_end();
 
-  step_start("Refining backbone");
-    refine_backbone(&input,refine_sample,&args,backbone,n);
-  step_end();
+    step_start("Refining backbone");
+      refine_success=refine_backbone(&input,refine_sample,&args,backbone,n);
+    step_end();
+  }
 
   step_start("Restacking to output file");
     image_t output;
