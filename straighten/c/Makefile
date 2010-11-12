@@ -13,7 +13,7 @@ run: straighten
 
 .PHONY : debug
 debug:
-	gcc -g $(CFILES) $(GCCOPTS)
+	gcc -DNO_PROGRESS_BARS -g $(CFILES) $(GCCOPTS)
 	echo "run $(RUNOPTS)" > gdb.tmp
 	gdb -x gdb.tmp ./straighten
 	rm gdb.tmp
