@@ -19,7 +19,7 @@ debug:
 	rm gdb.tmp
 
 .PHONY : ddd
-debug:
+ddd:
 	gcc -DNO_PROGRESS_BARS -g $(CFILES) $(GCCOPTS)
 	ddd --gdb ./straighten
 
