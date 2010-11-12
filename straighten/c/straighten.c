@@ -336,6 +336,10 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
 #ifdef X11
   int g2=g2_open_X11(image->width/args->image_scale,image->height/args->image_scale);
   g2_set_auto_flush(g2,0);
+#define G2_TRANSFORM(x) \
+  g2,\
+                                        x.p[2]/args->image_scale,\
+      (image->height/args->image_scale)-x.p[1]/args->image_scale
 #endif
   while(delta_history < args->delta_history) {
     kdtree_t* kdtree;
@@ -355,7 +359,10 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
 #ifndef X11
 #define ACCOUNT_POINT ACCOUNT_POINT_
 #else
-#define ACCOUNT_POINT ACCOUNT_POINT_; g2_move(g2,backbone[nn].p[2]/args->image_scale,image->height/args->image_scale-backbone[nn].p[1]/args->image_scale); g2_pen(g2,7); g2_line_to(g2,sample[i].p[2]/args->image_scale,image->height/args->image_scale-sample[i].p[1]/args->image_scale)
+#define ACCOUNT_POINT ACCOUNT_POINT_;\
+      g2_pen(g2,7);\
+      g2_move(G2_TRANSFORM(backbone[nn]));\
+      g2_line_to(G2_TRANSFORM(sample[i]))
 #endif
       ACCOUNT_POINT;
       if(args->spread_voronoi) {
@@ -431,13 +438,15 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
     memcpy(backbone,backbone_new,n*sizeof(dpoint_t));
 
 #ifdef X11
-    g2_pen(g2,0);
-    g2_filled_rectangle(g2,0,0,(double)image->width/args->image_scale,(double)image->height/args->image_scale);
-    g2_move(g2,backbone[0].p[2]/args->image_scale,image->height/args->image_scale-backbone[0].p[1]/args->image_scale);
-    g2_pen(g2,19);
-    for(i=1;i<n;i++) {
-      g2_line_to(g2,backbone[i].p[2]/args->image_scale,image->height/args->image_scale-backbone[i].p[1]/args->image_scale);
+#define G2_DRAW_BACKBONE \
+    g2_pen(g2,0);\
+    g2_filled_rectangle(g2,0,0,(double)image->width/args->image_scale,(double)image->height/args->image_scale);\
+    g2_move(G2_TRANSFORM(backbone[0]));\
+    g2_pen(g2,19);\
+    for(i=1;i<n;i++) {\
+      g2_line_to(G2_TRANSFORM(backbone[i]));\
     }
+    G2_DRAW_BACKBONE
 #endif
 
     replace_in_sample(image,sample,args->refine_refresh_size,args->refine_sample_size,image->threshhold);
@@ -445,19 +454,21 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
     memset(dh_str,32,args->delta_history+1);
     memset(dh_str,'=',delta_history);
     dh_str[delta_history]='>';
-    printf("\e[0G[\e[1;32;44m%c\e[m] iterations: %d; delta: %s%lf\t\e[32;44m%s\e[m]",spinner[iterations%(sizeof(spinner)-1)],iterations++,(iter_delta>args->refine_threshhold*1.2)?"\e[31m":(iter_delta<args->refine_threshhold)?"\e[32m":"\e[33m",iter_delta,dh_str);
+    printf("\e[0G[\e[1;32;44m%c\e[m] iterations: %d; delta: %s%lf\t\e[32;44m%s\e[m]",\
+        spinner[iterations%(sizeof(spinner)-1)],\
+        iterations++,\
+        (iter_delta>args->refine_threshhold*1.2)?\
+          "\e[31m":\
+          (iter_delta<args->refine_threshhold)?\
+            "\e[32m":\
+            "\e[33m",\
+        iter_delta,\
+        dh_str);
     fflush(stdout);
   }
   printf("\n\n");
 #ifdef X11
-  g2_pen(g2,0);
-  g2_filled_rectangle(g2,0,0,(double)image->width/args->image_scale,(double)image->height/args->image_scale);
-  //draw_image(g2,image,args);
-  g2_move(g2,backbone[0].p[2]/args->image_scale,image->height/args->image_scale-backbone[0].p[1]/args->image_scale);
-  g2_pen(g2,19);
-  for(i=1;i<n;i++) {
-    g2_line_to(g2,backbone[i].p[2]/args->image_scale,image->height/args->image_scale-backbone[i].p[1]/args->image_scale);
-  }
+  G2_DRAW_BACKBONE
   g2_flush(g2);
   usleep(100000);
 #endif
