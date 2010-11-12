@@ -707,6 +707,3 @@ int main(int argc, char** argv) {
 
   return 0;
 }
-
-//TODO: Refactor the compute_sd to use perform_sample
-//TODO: Rename image.h to util.h
