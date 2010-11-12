@@ -129,7 +129,7 @@ COMPARISON_FUNCTION(2)
 int (*point_compare[3])(const void*,const void*) \
       = {point_compare0,point_compare1,point_compare2};
 
-kdtree_t* kdtree_build_(const dpoint_t* pts, int n, int depth, int* tot_i, int tot_n) {
+kdtree_t* kdtree_build_(const dpoint_t* pts, int n, int depth, int* tot_i, int tot_n, kdtree_t* parent) {
   if(n==0) return NULL;
   int axis = depth % 3;
   dpoint_t* plist = malloc(sizeof(dpoint_t)*n);
@@ -138,15 +138,30 @@ kdtree_t* kdtree_build_(const dpoint_t* pts, int n, int depth, int* tot_i, int t
   int median = n/2;
   kdtree_t* node = malloc(sizeof(kdtree_t));
   //progress((*tot_i)++,tot_n*2,1,"nodes");
+  node->axis = axis;
+  int i;
+  if(parent) {
+    for(i=0;i<3*2;i++) {
+      node->ranges[i]=parent->ranges[i];
+    }
+  } else {
+    for(i=0;i<3;i++) {
+      node->ranges[i*2]=-INFINITY;
+      node->ranges[i*2+1]=INFINITY;
+    }
+  }
+  node->ranges[node->axis*2]=plist[0].p[axis];
+  node->ranges[node->axis*2+1]=plist[n-1].p[axis];
   node->location = plist[median];
-  node->left = kdtree_build_(plist,median,depth+1,tot_i,tot_n);
-  node->right = kdtree_build_(&(plist[median+1]),n-median-1,depth+1,tot_i,tot_n);
+  node->up = parent;
+  node->left = kdtree_build_(plist,median,depth+1,tot_i,tot_n,node);
+  node->right = kdtree_build_(&(plist[median+1]),n-median-1,depth+1,tot_i,tot_n,node);
   return node;
 }
 
 kdtree_t* kdtree_build(const dpoint_t* pts, int n) {
   int tot_i=0;
-  kdtree_build_(pts,n,0,&tot_i,n);
+  kdtree_build_(pts,n,0,&tot_i,n,NULL);
 }
 
 const kdtree_t* kdtree_search_(const kdtree_t* here, point_t point, const kdtree_t* best, double best_dist, int axis) {
@@ -174,14 +189,27 @@ const kdtree_t* kdtree_search_(const kdtree_t* here, point_t point, const kdtree
   best = kdtree_search_(child,point,best,best_dist,(axis+1)%3);
   best_dist = distance_id(best->location,point);
 
-  if(abs(here->location.p[axis]-point.p[axis]) < best_dist) {
-    if(left_nearer) {
-      child=here->right;
-    } else {
-      child=here->left;
+  if(left_nearer) {
+    child=here->right;
+  } else {
+    child=here->left;
+  }
+
+  if(child) {
+    double corner_distance=0;
+    int i;
+    for(i=0;i<3;i++) {
+      if(point.p[i] > child->ranges[i*2+1]) {
+        corner_distance+=(point.p[i]-child->ranges[i*2+1])*(point.p[i]-child->ranges[i*2+1]);
+      } else if (point.p[i] < child->ranges[i*2]) {
+        corner_distance+=(point.p[i]-child->ranges[i*2])*(point.p[i]-child->ranges[i*2]);
+      }
     }
-    best = kdtree_search_(child,point,best,best_dist,(axis+1)%3);
-    best_dist = distance_id(best->location,point);
+
+    if(sqrt(corner_distance) < best_dist) {
+      best = kdtree_search_(child,point,best,best_dist,(axis+1)%3);
+      best_dist = distance_id(best->location,point);
+    }
   }
   return best;
 }

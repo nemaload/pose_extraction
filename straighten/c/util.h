@@ -53,6 +53,9 @@ void replace_in_sample(const image_t*, point_t*, int, int, double);
 
 typedef struct kd_node {
   dpoint_t location;
+  double ranges[6];
+  int axis;
+  struct kd_node* up;
   struct kd_node* left;
   struct kd_node* right;
 } kdtree_t;
