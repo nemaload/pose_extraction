@@ -25,10 +25,10 @@ void step(se_t se, int inc, const char* desc) {
     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &s_t_usr);
 
     if(desc) {
-      printf("[Step %s begin (%s)]\n\n",num,desc);
+      printf("[Step %s (%s)]\n\n",num,desc);
       last_desc = desc;
     } else {
-      printf("[Step %s begin]\n\n",num);
+      printf("[Step %s]\n\n",num);
       last_desc = NULL;
     }
   } else {
@@ -38,12 +38,6 @@ void step(se_t se, int inc, const char* desc) {
     double elapsed_usr;
     clock_gettime(CLOCK_REALTIME, &e_t_rt);
     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &e_t_usr);
-    if(last_desc && !desc)
-      printf("[Step %s end (%s)]\n\n",num,last_desc);
-    else if(desc)
-      printf("[Step %s end (%s)]\n\n",num,desc);
-    else
-      printf("[Step %s end]\n\n",num);
     elapsed_rt = elapsed(e_t_rt,s_t_rt);
     elapsed_usr = elapsed(e_t_usr,s_t_usr);
 
@@ -51,8 +45,7 @@ void step(se_t se, int inc, const char* desc) {
     total_time_rt += elapsed_rt;
     total_time_usr += elapsed_usr;
     printf("[Running total of time: %lfms/%lfms]\n" \
-          "######################################" \
-        "\n######################################\n",total_time_usr,total_time_rt);
+           "------------------------------------------------------\n",total_time_usr,total_time_rt);
   }
 }
 double elapsed(struct timespec e_t, struct timespec s_t) {
@@ -101,8 +94,8 @@ void progress(int i, int n, int l, char* desc) {
     }
     if ((n/PROGRESS_BAR_WIDTH) == 0 || (i-1)%(n/PROGRESS_BAR_WIDTH) == 0 || (i-last_i[l])>=(i-1)%(n/PROGRESS_BAR_WIDTH)) {
       if(i/((double)n/PROGRESS_BAR_WIDTH)<=PROGRESS_BAR_WIDTH){
-        printf("\033[%dG=>\033[%dG",2+(int)(int)((i-1)/((double)n/PROGRESS_BAR_WIDTH)),PROGRESS_BAR_WIDTH+4);
-        printf("%9d/%9d %10s\033[0K", i, n, desc);
+        printf("\033[%dG%9d/%9d %10s\033[0K", PROGRESS_BAR_WIDTH+4, i, n, desc);
+        printf("\033[%dG\e[32m=>\e[m",2+(int)(int)((i-1)/((double)n/PROGRESS_BAR_WIDTH)));
         fflush(stdout);
       }
     }

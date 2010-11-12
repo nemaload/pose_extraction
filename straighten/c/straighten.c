@@ -287,7 +287,7 @@ dpoint_t* trace_backbone(int tip, const int* mst, const double* distances, const
     progress(j,n,0,"controls");
   }
   *backbone_length = j;
-  progress(n,n,0,"controls");
+  printf("]  Done tracing backbone! (%d/%d points)\e[K\n\n",j,n);
   free(previous);
   return backbone;
 }
@@ -330,6 +330,8 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
   int iterations = 0;
   int delta_history = 0;
   char spinner[] = "-\\|/";
+  char* dh_str = malloc(args->delta_history+2);
+  dh_str[args->delta_history+1]='\0';
   int i;
 #ifdef X11
   int g2=g2_open_X11(image->width/args->image_scale,image->height/args->image_scale);
@@ -440,7 +442,10 @@ void refine_backbone(const image_t* image, point_t* sample, const args_t* args, 
 
     replace_in_sample(image,sample,args->refine_refresh_size,args->refine_sample_size,image->threshhold);
 
-    printf("\e[0G[%c] iteration: %d; delta: %lf",spinner[iterations%(sizeof(spinner)-1)],iterations++,iter_delta);
+    memset(dh_str,32,args->delta_history+1);
+    memset(dh_str,'=',delta_history);
+    dh_str[delta_history]='>';
+    printf("\e[0G[\e[1;32;44m%c\e[m] iterations: %d; delta: %s%lf\t\e[32;44m%s\e[m]",spinner[iterations%(sizeof(spinner)-1)],iterations++,(iter_delta>args->refine_threshhold*1.2)?"\e[31m":(iter_delta<args->refine_threshhold)?"\e[32m":"\e[33m",iter_delta,dh_str);
     fflush(stdout);
   }
   printf("\n\n");
@@ -542,6 +547,9 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
   } else {
     dst->height = args->output_height;
   }
+  if(args->output_width==-1 || args->output_height==-1) {
+    printf("\n");
+  }
   int length;
 
 #ifndef RESTACK_3D //TODO: do 3D restacking
@@ -599,6 +607,7 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
       p##c += dy##c;
       FOREACH3(INC_P)
     }
+    progress(i+1,dst->height,0,"planes");
   }
 #endif
 }
