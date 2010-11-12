@@ -51,16 +51,16 @@ unsigned short pixel_get(const image_t* i, point_t p) {
   FOREACH3(DISTANCE_I) \
   DISTANCE_RET
 
-double distance_id(dpoint_t a, point_t b) {
+inline double distance_id(dpoint_t a, point_t b) {
   DISTANCE_I_
 }
 
-double distance_i(point_t a, point_t b) {
+inline double distance_i(point_t a, point_t b) {
   DISTANCE_I_
 }
 
 #define DISTANCE_D(c) double d##c = b.p[c]-a.p[c];
-double distance(dpoint_t a, dpoint_t b) {
+inline double distance(dpoint_t a, dpoint_t b) {
   FOREACH3(DISTANCE_D)
   DISTANCE_RET
 }
@@ -165,8 +165,6 @@ kdtree_t* kdtree_build(const dpoint_t* pts, int n) {
 }
 
 const kdtree_t* kdtree_search_(const kdtree_t* here, point_t point, const kdtree_t* best, double best_dist, int axis) {
-  if(here==NULL)
-    return best;
   if(best==NULL)
     best=here;
 
@@ -176,38 +174,33 @@ const kdtree_t* kdtree_search_(const kdtree_t* here, point_t point, const kdtree
     best_dist = here_dist;
   }
 
-  int left_nearer;
-  kdtree_t* child;
+  kdtree_t *near_child, *far_child;
   if(point.p[axis] < here->location.p[axis]) {
-    child=here->left;
-    left_nearer=1;
+    near_child=here->left;
+    far_child=here->right;
   } else {
-    child=here->right;
-    left_nearer=0;
+    near_child=here->right;
+    far_child=here->left;
   }
 
-  best = kdtree_search_(child,point,best,best_dist,(axis+1)%3);
-  best_dist = distance_id(best->location,point);
-
-  if(left_nearer) {
-    child=here->right;
-  } else {
-    child=here->left;
+  if(near_child) {
+    best = kdtree_search_(near_child,point,best,best_dist,(axis+1)%3);
+    best_dist = distance_id(best->location,point);
   }
 
-  if(child) {
+  if(far_child) {
     double corner_distance=0;
     int i;
     for(i=0;i<3;i++) {
-      if(point.p[i] > child->ranges[i*2+1]) {
-        corner_distance+=(point.p[i]-child->ranges[i*2+1])*(point.p[i]-child->ranges[i*2+1]);
-      } else if (point.p[i] < child->ranges[i*2]) {
-        corner_distance+=(point.p[i]-child->ranges[i*2])*(point.p[i]-child->ranges[i*2]);
+      if(point.p[i] > far_child->ranges[i*2+1]) {
+        corner_distance+=(point.p[i]-far_child->ranges[i*2+1])*(point.p[i]-far_child->ranges[i*2+1]);
+      } else if (point.p[i] < far_child->ranges[i*2]) {
+        corner_distance+=(point.p[i]-far_child->ranges[i*2])*(point.p[i]-far_child->ranges[i*2]);
       }
     }
 
     if(sqrt(corner_distance) < best_dist) {
-      best = kdtree_search_(child,point,best,best_dist,(axis+1)%3);
+      best = kdtree_search_(far_child,point,best,best_dist,(axis+1)%3);
       best_dist = distance_id(best->location,point);
     }
   }
