@@ -18,6 +18,11 @@ debug:
 	gdb -x gdb.tmp ./straighten
 	rm gdb.tmp
 
+.PHONY : ddd
+debug:
+	gcc -DNO_PROGRESS_BARS -g $(CFILES) $(GCCOPTS)
+	ddd --gdb ./straighten
+
 .PHONY : profile
 profile:
 	gcc -O3 -g -pg $(CFILES) $(GCCOPTS)
