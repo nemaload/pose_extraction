@@ -566,9 +566,11 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
 #define INIT_P(c) \
     p##c -= dy##c*dst->width/2;
     FOREACH3(INIT_P)
+    int two_d;
+    if(src->depth==1){two_d=1;}
     for(j=0;j<dst->width;j++) {
       unsigned short pixel = 0;
-      if(p0>=0&&p1>=0&&p2>=0&&p0<src->depth-1&&p1<src->height-1&&p2<src->width-1) {
+      if((int)p0>=0&&(int)p1>=0&&(int)p2>=0&&((int)p0<src->depth-1||two_d)&&(int)p1<src->height-1&&(int)p2<src->width-1) {
         if(args->no_interpolate) {
           pixel = ((unsigned short*)src->data)[(int)(p0)*src->height*src->width+(int)(p1)*src->width+(int)(p2)];
         } else {
@@ -583,10 +585,12 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
           GET_CORNER(0,0,1);
           GET_CORNER(0,1,0);
           GET_CORNER(0,1,1);
-          GET_CORNER(1,0,0);
-          GET_CORNER(1,0,1);
-          GET_CORNER(1,1,0);
-          GET_CORNER(1,1,1);
+          if(!two_d) {
+            GET_CORNER(1,0,0);
+            GET_CORNER(1,0,1);
+            GET_CORNER(1,1,0);
+            GET_CORNER(1,1,1);
+          }
 
           pixel = (unsigned short) pixel_d;
         }
