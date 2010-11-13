@@ -513,7 +513,7 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
   const char* filename;
   const char* suffix=".out";
   int three_d_output=0;
-  if(args->output_filename==NULL) {
+  if(args->output_filename[0]=='\0') {
     char * filename_=calloc(strlen(args->input_filename)+strlen(suffix),1);
     strcat(filename_,args->input_filename);
     strcat(filename_,suffix);
