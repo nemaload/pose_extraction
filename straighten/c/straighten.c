@@ -8,6 +8,8 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <math.h>
+#include <pthread.h>
+#include <sched.h>
 
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
@@ -480,11 +482,39 @@ void* open_mmapped_file_write(const char* filename, int length) {
   return region;
 }
 
+struct restack_shared {
+#define RESTACK_STRUCT(c) \
+  gsl_spline* spl##c; \
+  gsl_interp_accel* accel##c;
+  FOREACH3(RESTACK_STRUCT)
+  unsigned short* data;
+  int src_height;
+  int src_width;
+  int src_depth;
+  unsigned short* new_data;
+  int dst_height;
+  int dst_width;
+  int dst_depth;
+  int extension;
+  int no_interpolate;
+  int output_slice;
+  int three_d_output;
+};
+
+typedef struct {
+  struct restack_shared sh;
+  int j_start;
+  int j_end;
+} restack_workunit_t;
+
+void* restack_worker(void* workunit);
+
 /*
  * [Step 8]
  * Actually straighten the image by restacking along a spline defined by the backbone.
  */
 void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_t* backbone, int n) {
+  struct restack_shared sh;
   /*
    * First, we define the multidimensional spline, by walking along the control
    * points, measuring the total distance walked, and using that as the parameter
@@ -494,7 +524,7 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
 #define PTS_LIST_ALLOC(c) \
   double* y##c = malloc(sizeof(double)*n);
   FOREACH3(PTS_LIST_ALLOC)
-  int i,j,k;
+  int i;
   xa[0]=0.0;
   for(i=1;i<n;i++) {
     xa[i] = xa[i-1]+distance(backbone[i],backbone[i-1]);
@@ -505,14 +535,14 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
   i=0;
   FOREACH3(PTS_SPLIT)
 #define GSL_INIT(c) \
-  gsl_spline* spl##c = gsl_spline_alloc(gsl_interp_cspline,n); \
-  gsl_interp_accel* accel##c = gsl_interp_accel_alloc(); \
-  gsl_spline_init(spl##c,xa,y##c,n);
+  sh.spl##c = gsl_spline_alloc(gsl_interp_cspline,n); \
+  sh.accel##c = gsl_interp_accel_alloc(); \
+  gsl_spline_init(sh.spl##c,xa,y##c,n);
   FOREACH3(GSL_INIT)
 
   const char* filename;
   const char* suffix=".out";
-  int three_d_output=0;
+  sh.three_d_output=0;
   if(args->output_filename[0]=='\0') {
     char * filename_=calloc(strlen(args->input_filename)+strlen(suffix),1);
     strcat(filename_,args->input_filename);
@@ -528,21 +558,20 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
     dst->width = args->output_width;
     printf("Output width manually set: %d\n",dst->width);
   }
-  int extension;
   if(args->output_extension==-1) {
-    extension = dst->width;
+    sh.extension = dst->width;
   } else {
-    extension = args->output_extension;
+    sh.extension = args->output_extension;
   }
   if(args->output_height==-1) {
-    dst->height=(int)xa[n-1]+2*extension;
+    dst->height=(int)xa[n-1]+2*sh.extension;
     printf("Output height automatically determined: %d\n",dst->height);
   } else {
     dst->height = args->output_height;
     printf("Output height manually set: %d\n",dst->height);
   }
   if(args->output_slice==-1) {
-    three_d_output=1;
+    sh.three_d_output=1;
     dst->depth = src->depth;
     //TODO: output depth option?
     printf("Output depth (same as input depth): %d\n",dst->depth);
@@ -551,28 +580,56 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
     printf("Output is a single slice at %d (depth is 1)\n",args->output_slice);
   }
   printf("\n");
-  int length;
 
+  int length;
   length = dst->width*dst->height*dst->depth*2;
   dst->data = (open_mmapped_file_write(filename,length));
 
-  unsigned short* data = (unsigned short*)src->data;
-  int src_height = src->height;
-  int src_width = src->width;
-  int src_depth = src->depth;
+  sh.data = (unsigned short*)src->data;
+  sh.src_height = src->height;
+  sh.src_width = src->width;
+  sh.src_depth = src->depth;
   
-  unsigned short* new_data = (unsigned short*)dst->data;
-  int dst_height = dst->height;
-  int dst_width = dst->width;
-  int dst_depth = dst->depth;
+  sh.new_data = (unsigned short*)dst->data;
+  sh.dst_height = dst->height;
+  sh.dst_width = dst->width;
+  sh.dst_depth = dst->depth;
 
-  int no_interpolate = args->no_interpolate;
+  sh.no_interpolate = args->no_interpolate;
+  sh.output_slice = args->output_slice;
 
-  for(j=0;j<dst_height;j++) {
+  int n_threads = args->n_threads;
+  pthread_t* thread = malloc(sizeof(pthread_t)*n_threads);
+
+  for(i=0;i<n_threads;i++) {
+    restack_workunit_t* wu=malloc(sizeof(restack_workunit_t));
+    wu->sh=sh;
+    wu->j_start=i*(sh.dst_height/n_threads);
+    if(i==n_threads-1) {
+      wu->j_end=sh.dst_height-1;
+    } else {
+      wu->j_end=(i+1)*(sh.dst_height/n_threads)-1;
+    }
+    pthread_create(&thread[i],NULL,restack_worker,(void*)wu);
+  }
+  for(i=0;i<n_threads;i++) {
+    void* status;
+    pthread_join(thread[i], &status);
+  }
+}
+
+void* restack_worker(void* workunit) {
+  restack_workunit_t* wu=(restack_workunit_t*)workunit;
+  struct restack_shared sh=wu->sh;
+  int j_start = wu->j_start;
+  int j_end = wu->j_end;
+  int i,j,k;
+
+  for(j=j_start;j<j_end;j++) {
     double magnitude;
 #define GET_P_D(c) \
-    double p##c = gsl_spline_eval(spl##c,j-extension,accel##c); \
-    double d##c = gsl_spline_eval_deriv(spl##c,j-extension,accel##c); \
+    double p##c = gsl_spline_eval(sh.spl##c,j-sh.extension,sh.accel##c); \
+    double d##c = gsl_spline_eval_deriv(sh.spl##c,j-sh.extension,sh.accel##c); \
     double dx##c; \
     double dz##c; \
     double pz##c;
@@ -597,29 +654,29 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
     pz##c = p##c;
     FOREACH3(COPY_P_Z)
     int two_d_input=0;
-    if(src_depth==1){two_d_input=1;}
-    if(!three_d_output) {
+    if(sh.src_depth==1){two_d_input=1;}
+    if(!sh.three_d_output) {
 #define INC_P_Z_S(c) \
-      pz##c += (args->output_slice-src_depth/2)*dz##c;
+      pz##c += (sh.output_slice-sh.src_depth/2)*dz##c;
       FOREACH3(INC_P_Z_S)
     } else {
 #define INIT_P_Z(c) \
-      pz##c -= (dst_depth/2)*dz##c;
+      pz##c -= (sh.dst_depth/2)*dz##c;
       FOREACH3(INIT_P_Z)
     }
 
-    for(k=0;k<dst_depth;k++) {
+    for(k=0;k<sh.dst_depth;k++) {
 #define INIT_P_X(c) \
-      p##c = pz##c - dx##c*dst_width/2;
+      p##c = pz##c - dx##c*sh.dst_width/2;
       FOREACH3(INIT_P_X)
-      for(i=0;i<dst_width;i++) {
+      for(i=0;i<sh.dst_width;i++) {
 #define P_INT(c) \
         int pi##c=(int)p##c;
         FOREACH3(P_INT)
         unsigned short pixel = 0;
-        if(pi0>=0&&pi1>=0&&pi2>=0&&(pi0<src_depth-1||two_d_input)&&pi1<src_height-1&&pi2<src_width-1) {
-          if(no_interpolate) {
-            pixel = pixel_get_(((unsigned short*)data),pi0,pi1,pi2,src_width,src_height);
+        if(pi0>=0&&pi1>=0&&pi2>=0&&(pi0<sh.src_depth-1||two_d_input)&&pi1<sh.src_height-1&&pi2<sh.src_width-1) {
+          if(sh.no_interpolate) {
+            pixel = pixel_get_(((unsigned short*)sh.data),pi0,pi1,pi2,sh.src_width,sh.src_height);
           } else {
 #define TRUNC_P(c) \
             double t##c = p##c - pi##c;
@@ -627,7 +684,7 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
             double pixel_d=0;
 #define ONE_MINUS(a,x) (1-a+(2*a-1)*x)
 #define GET_CORNER(z,y,x) \
-            pixel_d += (ONE_MINUS(z,t0)*ONE_MINUS(y,t1)*ONE_MINUS(x,t2))*(data)[((pi0)+z)*src_height*src_width+((pi1)+y)*src_width+((pi2)+z)]
+            pixel_d += (ONE_MINUS(z,t0)*ONE_MINUS(y,t1)*ONE_MINUS(x,t2))*(sh.data)[((pi0)+z)*sh.src_height*sh.src_width+((pi1)+y)*sh.src_width+((pi2)+z)]
             GET_CORNER(0,0,0);
             GET_CORNER(0,0,1);
             GET_CORNER(0,1,0);
@@ -642,7 +699,7 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
             pixel = (unsigned short) pixel_d;
           }
         }
-        new_data[k*dst_width*dst_height+j*dst_width+i]=pixel;
+        sh.new_data[k*sh.dst_width*sh.dst_height+j*sh.dst_width+i]=pixel;
 #define INC_P_X(c) \
         p##c += dx##c;
         FOREACH3(INC_P_X)
@@ -651,8 +708,10 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
       pz##c += dz##c;
       FOREACH3(INC_P_Z)
     }
-    progress(j+1,dst_height,0,"planes");
+    sched_yield();
+    progress(j+1,sh.dst_height,0,"planes");
   }
+  return NULL;
 }
 
 /*
