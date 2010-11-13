@@ -568,7 +568,7 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
     FOREACH3(INIT_P)
     for(j=0;j<dst->width;j++) {
       unsigned short pixel = 0;
-      if(p0>0&&p1>0&&p2>0&&p0<src->depth-1&&p1<src->height-1&&p2<src->width-1) {
+      if(p0>=0&&p1>=0&&p2>=0&&p0<src->depth-1&&p1<src->height-1&&p2<src->width-1) {
         if(args->no_interpolate) {
           pixel = ((unsigned short*)src->data)[(int)(p0)*src->height*src->width+(int)(p1)*src->width+(int)(p2)];
         } else {
