@@ -25,6 +25,7 @@
   ARG(ARG_DBL0,gamma,"g","gamma","weight of E_smoothness; 0.5 in the original paper",0.6) \
   ARG(ARG_DBL0,delta,"d","delta","'inertia' term (not in the original paper)",2.2) \
   ARG(ARG_DBL0,image_scale,"s","scale","factor to divide image width and height by in display",4.0) \
+  ARG(ARG_INT0,x_delay_ms,"x","xdelay","milliseconds to wait at the end of step 7 before closing the window",0) \
   ARG(ARG_LITN,precache,"p","precache","mmap the image and read all the pixels; performing no processing if specified twice.",0) \
 
 #endif

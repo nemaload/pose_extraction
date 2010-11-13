@@ -447,7 +447,7 @@ int refine_backbone(const image_t* image, point_t* sample, const args_t* args, d
 #ifdef X11
   G2_DRAW_BACKBONE
   g2_flush(g2);
-  usleep(100000);
+  usleep(1e3*args->x_delay_ms);
 #endif
   free(total_brightness);
   free(weighted_sum);
