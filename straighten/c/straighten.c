@@ -18,7 +18,9 @@
 #include "util.h"
 #include "debug.h"
 
+#ifndef NO_X11
 #define X11
+#endif
 
 #ifdef X11
 #include <g2.h>
