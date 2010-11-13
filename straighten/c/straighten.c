@@ -700,6 +700,7 @@ void* restack_worker(void* workunit) {
           }
         }
         sh.new_data[k*sh.dst_width*sh.dst_height+j*sh.dst_width+i]=pixel;
+        sched_yield();
 #define INC_P_X(c) \
         p##c += dx##c;
         FOREACH3(INC_P_X)
@@ -708,7 +709,6 @@ void* restack_worker(void* workunit) {
       pz##c += dz##c;
       FOREACH3(INC_P_Z)
     }
-    sched_yield();
     progress(j+1,sh.dst_height,0,"planes");
   }
   return NULL;
