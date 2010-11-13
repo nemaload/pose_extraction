@@ -92,9 +92,10 @@ void progress(int i, int n, int l, char* desc) {
       printf("\033[%dF",last_l-l);
       last_l=l;
     }
+    printf("\033[%dG%9d/%9d %10s\033[0K", PROGRESS_BAR_WIDTH+4, i, n, desc);
+    fflush(stdout);
     if ((n/PROGRESS_BAR_WIDTH) == 0 || (i-1)%(n/PROGRESS_BAR_WIDTH) == 0 || (i-last_i[l])>=(i-1)%(n/PROGRESS_BAR_WIDTH)) {
       if(i/((double)n/PROGRESS_BAR_WIDTH)<=PROGRESS_BAR_WIDTH){
-        printf("\033[%dG%9d/%9d %10s\033[0K", PROGRESS_BAR_WIDTH+4, i, n, desc);
         printf("\033[%dG\e[32m=>\e[m",2+(int)(int)((i-1)/((double)n/PROGRESS_BAR_WIDTH)));
         fflush(stdout);
       }
