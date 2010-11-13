@@ -555,9 +555,20 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
 
   length = dst->width*dst->height*dst->depth*2;
   dst->data = (open_mmapped_file_write(filename,length));
-  unsigned short* new_data = (unsigned short*)dst->data;
 
-  for(j=0;j<dst->height;j++) {
+  unsigned short* data = (unsigned short*)src->data;
+  int src_height = src->height;
+  int src_width = src->width;
+  int src_depth = src->depth;
+  
+  unsigned short* new_data = (unsigned short*)dst->data;
+  int dst_height = dst->height;
+  int dst_width = dst->width;
+  int dst_depth = dst->depth;
+
+  int no_interpolate = args->no_interpolate;
+
+  for(j=0;j<dst_height;j++) {
     double magnitude;
 #define GET_P_D(c) \
     double p##c = gsl_spline_eval(spl##c,j-extension,accel##c); \
@@ -586,34 +597,37 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
     pz##c = p##c;
     FOREACH3(COPY_P_Z)
     int two_d_input=0;
-    if(src->depth==1){two_d_input=1;}
+    if(src_depth==1){two_d_input=1;}
     if(!three_d_output) {
 #define INC_P_Z_S(c) \
-      pz##c += (args->output_slice-src->depth/2)*dz##c;
+      pz##c += (args->output_slice-src_depth/2)*dz##c;
       FOREACH3(INC_P_Z_S)
     } else {
 #define INIT_P_Z(c) \
-      pz##c -= (dst->depth/2)*dz##c;
+      pz##c -= (dst_depth/2)*dz##c;
       FOREACH3(INIT_P_Z)
     }
-      
-    for(k=0;k<dst->depth;k++) {
+
+    for(k=0;k<dst_depth;k++) {
 #define INIT_P_X(c) \
-      p##c = pz##c - dx##c*dst->width/2;
+      p##c = pz##c - dx##c*dst_width/2;
       FOREACH3(INIT_P_X)
-      for(i=0;i<dst->width;i++) {
+      for(i=0;i<dst_width;i++) {
+#define P_INT(c) \
+        int pi##c=(int)p##c;
+        FOREACH3(P_INT)
         unsigned short pixel = 0;
-        if((int)p0>=0&&(int)p1>=0&&(int)p2>=0&&((int)p0<src->depth-1||two_d_input)&&(int)p1<src->height-1&&(int)p2<src->width-1) {
-          if(args->no_interpolate) {
-            pixel = ((unsigned short*)src->data)[(int)(p0)*src->height*src->width+(int)(p1)*src->width+(int)(p2)];
+        if(pi0>=0&&pi1>=0&&pi2>=0&&(pi0<src_depth-1||two_d_input)&&pi1<src_height-1&&pi2<src_width-1) {
+          if(no_interpolate) {
+            pixel = pixel_get_(((unsigned short*)data),pi0,pi1,pi2,src_width,src_height);
           } else {
 #define TRUNC_P(c) \
-            double t##c = p##c - (int)p##c;
+            double t##c = p##c - pi##c;
             FOREACH3(TRUNC_P)
             double pixel_d=0;
 #define ONE_MINUS(a,x) (1-a+(2*a-1)*x)
 #define GET_CORNER(z,y,x) \
-            pixel_d += (ONE_MINUS(z,t0)*ONE_MINUS(y,t1)*ONE_MINUS(x,t2))*((unsigned short*)src->data)[((int)(p0)+z)*src->height*src->width+((int)(p1)+y)*src->width+((int)(p2)+z)]
+            pixel_d += (ONE_MINUS(z,t0)*ONE_MINUS(y,t1)*ONE_MINUS(x,t2))*(data)[((pi0)+z)*src_height*src_width+((pi1)+y)*src_width+((pi2)+z)]
             GET_CORNER(0,0,0);
             GET_CORNER(0,0,1);
             GET_CORNER(0,1,0);
@@ -628,7 +642,7 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
             pixel = (unsigned short) pixel_d;
           }
         }
-        new_data[k*dst->width*dst->height+j*dst->width+i]=pixel;
+        new_data[k*dst_width*dst_height+j*dst_width+i]=pixel;
 #define INC_P_X(c) \
         p##c += dx##c;
         FOREACH3(INC_P_X)
@@ -637,7 +651,7 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
       pz##c += dz##c;
       FOREACH3(INC_P_Z)
     }
-    progress(j+1,dst->height,0,"planes");
+    progress(j+1,dst_height,0,"planes");
   }
 }
 
@@ -725,6 +739,8 @@ int main(int argc, char** argv) {
     image_t output;
     restack_image(&output,&input,&args,backbone,n);
   step_end();
+
+  printf("Cleaning up...\n");
 
   return 0;
 }

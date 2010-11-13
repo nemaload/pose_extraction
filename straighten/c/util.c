@@ -40,7 +40,11 @@ point_t random_point(const image_t* i) {
   return p;
 }
 
-unsigned short pixel_get(const image_t* i, point_t p) {
+inline unsigned short pixel_get_(const unsigned short* data, int p0, int p1, int p2, int width, int height) {
+  return data[p0*width*height+p1*width+p2];
+}
+
+inline unsigned short pixel_get(const image_t* i, point_t p) {
   return ((unsigned short*)i->data)[p.p[0]*i->width*i->height+p.p[1]*i->width+p.p[2]];
 }
 

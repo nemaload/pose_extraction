@@ -39,6 +39,7 @@ typedef struct {
 void init_rng(image_t*);
 void compute_depth(image_t*);
 point_t random_point(const image_t*);
+unsigned short pixel_get_(const unsigned short*,int,int,int,int,int);
 unsigned short pixel_get(const image_t*, point_t);
 double distance_i(point_t,point_t);
 double distance(dpoint_t,dpoint_t);
