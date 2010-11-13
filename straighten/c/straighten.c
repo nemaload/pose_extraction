@@ -512,6 +512,7 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
 
   const char* filename;
   const char* suffix=".out";
+  int three_d_output=0;
   if(args->output_filename==NULL) {
     char * filename_=calloc(strlen(args->input_filename)+strlen(suffix),1);
     strcat(filename_,args->input_filename);
@@ -525,6 +526,7 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
     printf("Output width automatically determined: %d\n",dst->width);
   } else {
     dst->width = args->output_width;
+    printf("Output width manually set: %d\n",dst->width);
   }
   int extension;
   if(args->output_extension==-1) {
@@ -537,74 +539,106 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
     printf("Output height automatically determined: %d\n",dst->height);
   } else {
     dst->height = args->output_height;
+    printf("Output height manually set: %d\n",dst->height);
   }
-  if(args->output_width==-1 || args->output_height==-1) {
-    printf("\n");
+  if(args->output_slice==-1) {
+    three_d_output=1;
+    dst->depth = src->depth;
+    //TODO: output depth option?
+    printf("Output depth (same as input depth): %d\n",dst->depth);
+  } else {
+    dst->depth = 1;
+    printf("Output is a single slice at %d (depth is 1)\n",args->output_slice);
   }
+  printf("\n");
   int length;
 
-#ifndef RESTACK_3D //TODO: do 3D restacking
-
-  dst->depth = 1;
-  length = dst->width*dst->height*2;
+  length = dst->width*dst->height*dst->depth*2;
   dst->data = (open_mmapped_file_write(filename,length));
-  unsigned short* data = (unsigned short*)dst->data;
+  unsigned short* new_data = (unsigned short*)dst->data;
 
-  for(i=0;i<dst->height;i++) {
+  for(j=0;j<dst->height;j++) {
+    double magnitude;
 #define GET_P_D(c) \
-    double p##c = gsl_spline_eval(spl##c,i-extension,accel##c); \
-    double d##c = gsl_spline_eval_deriv(spl##c,i-extension,accel##c); \
-    double dy##c;
+    double p##c = gsl_spline_eval(spl##c,j-extension,accel##c); \
+    double d##c = gsl_spline_eval_deriv(spl##c,j-extension,accel##c); \
+    double dx##c; \
+    double dz##c; \
+    double pz##c;
     FOREACH3(GET_P_D)
-    dy0=0;
-    dy1=d2;
-    dy2=-d1;
-    double magnitude = sqrt(dy1*dy1+dy2*dy2);
-    dy1/=magnitude;
-    dy2/=magnitude;
-    /*if(i<50) {
-      printf("spline point:\t%lf\t%lf\t%lf\nd:\t%lf\t%lf\t%lf\ndy:\t%lf\t%lf\t%lf\n",p0,p1,p2,d0,d1,d2,dy0,dy1,dy2);
-    }*/
-#define INIT_P(c) \
-    p##c -= dy##c*dst->width/2;
-    FOREACH3(INIT_P)
-    int two_d;
-    if(src->depth==1){two_d=1;}
-    for(j=0;j<dst->width;j++) {
-      unsigned short pixel = 0;
-      if((int)p0>=0&&(int)p1>=0&&(int)p2>=0&&((int)p0<src->depth-1||two_d)&&(int)p1<src->height-1&&(int)p2<src->width-1) {
-        if(args->no_interpolate) {
-          pixel = ((unsigned short*)src->data)[(int)(p0)*src->height*src->width+(int)(p1)*src->width+(int)(p2)];
-        } else {
+
+    dx0=0;
+    dx1=d2;
+    dx2=-d1;
+    magnitude = sqrt(dx1*dx1+dx2*dx2);
+    dx1/=magnitude;
+    dx2/=magnitude;
+
+    dz0=dx1*d2-dx2*d1;
+    dz1=dx2*d0;
+    dz2=-dx1*d0;
+    magnitude = sqrt(dz0*dz0+dz1*dz1+dz2*dz2);
+    dz0/=magnitude;
+    dz1/=magnitude;
+    dz2/=magnitude;
+
+#define COPY_P_Z(c) \
+    pz##c = p##c;
+    FOREACH3(COPY_P_Z)
+    int two_d_input=0;
+    if(src->depth==1){two_d_input=1;}
+    if(!three_d_output) {
+#define INC_P_Z_S(c) \
+      pz##c += (args->output_slice-src->depth/2)*dz##c;
+      FOREACH3(INC_P_Z_S)
+    } else {
+#define INIT_P_Z(c) \
+      pz##c -= (dst->depth/2)*dz##c;
+      FOREACH3(INIT_P_Z)
+    }
+      
+    for(k=0;k<dst->depth;k++) {
+#define INIT_P_X(c) \
+      p##c = pz##c - dx##c*dst->width/2;
+      FOREACH3(INIT_P_X)
+      for(i=0;i<dst->width;i++) {
+        unsigned short pixel = 0;
+        if((int)p0>=0&&(int)p1>=0&&(int)p2>=0&&((int)p0<src->depth-1||two_d_input)&&(int)p1<src->height-1&&(int)p2<src->width-1) {
+          if(args->no_interpolate) {
+            pixel = ((unsigned short*)src->data)[(int)(p0)*src->height*src->width+(int)(p1)*src->width+(int)(p2)];
+          } else {
 #define TRUNC_P(c) \
-          double t##c = p##c - (int)p##c;
-          FOREACH3(TRUNC_P)
-          double pixel_d=0;
+            double t##c = p##c - (int)p##c;
+            FOREACH3(TRUNC_P)
+            double pixel_d=0;
 #define ONE_MINUS(a,x) (1-a+(2*a-1)*x)
 #define GET_CORNER(z,y,x) \
-          pixel_d += (ONE_MINUS(z,t0)*ONE_MINUS(y,t1)*ONE_MINUS(x,t2))*((unsigned short*)src->data)[((int)(p0)+z)*src->height*src->width+((int)(p1)+y)*src->width+((int)(p2)+z)]
-          GET_CORNER(0,0,0);
-          GET_CORNER(0,0,1);
-          GET_CORNER(0,1,0);
-          GET_CORNER(0,1,1);
-          if(!two_d) {
-            GET_CORNER(1,0,0);
-            GET_CORNER(1,0,1);
-            GET_CORNER(1,1,0);
-            GET_CORNER(1,1,1);
-          }
+            pixel_d += (ONE_MINUS(z,t0)*ONE_MINUS(y,t1)*ONE_MINUS(x,t2))*((unsigned short*)src->data)[((int)(p0)+z)*src->height*src->width+((int)(p1)+y)*src->width+((int)(p2)+z)]
+            GET_CORNER(0,0,0);
+            GET_CORNER(0,0,1);
+            GET_CORNER(0,1,0);
+            GET_CORNER(0,1,1);
+            if(!two_d_input) {
+              GET_CORNER(1,0,0);
+              GET_CORNER(1,0,1);
+              GET_CORNER(1,1,0);
+              GET_CORNER(1,1,1);
+            }
 
-          pixel = (unsigned short) pixel_d;
+            pixel = (unsigned short) pixel_d;
+          }
         }
+        new_data[k*dst->width*dst->height+j*dst->width+i]=pixel;
+#define INC_P_X(c) \
+        p##c += dx##c;
+        FOREACH3(INC_P_X)
       }
-      data[i*dst->width+j]=pixel;
-#define INC_P(c) \
-      p##c += dy##c;
-      FOREACH3(INC_P)
+#define INC_P_Z(c) \
+      pz##c += dz##c;
+      FOREACH3(INC_P_Z)
     }
-    progress(i+1,dst->height,0,"planes");
+    progress(j+1,dst->height,0,"planes");
   }
-#endif
 }
 
 /*
@@ -626,7 +660,7 @@ int main(int argc, char** argv) {
   printf("Parsing command line...\n");
   parse_args(argc, argv, &args);
 
-  printf("Worm straightener v0.0.1\ncreated by David Dalrymple\n============================\n\n");
+  printf("\e[AWorm straightener v0.0.1\ncreated by David Dalrymple\n============================\n\n");
 
   step_start("mmapping file");
     input.data=open_mmapped_file_read(args.input_filename, &input.length);

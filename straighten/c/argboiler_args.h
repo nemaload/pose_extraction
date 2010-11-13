@@ -5,9 +5,10 @@
   ARG(ARG_FIL1,input_filename,NULL,NULL,"the input image (as raw data)",NULL) \
   ARG(ARG_INT1,input_width,"w","width","the width of each input image slice",-1) \
   ARG(ARG_INT1,input_height,"h","height","the height of each input image slice",-1) \
-  ARG(ARG_INT0,output_width,NULL,"worm-width","the width of the output image",-1) \
-  ARG(ARG_INT0,output_height,NULL,"worm-height","the height of the output image",-1) \
-  ARG(ARG_INT0,output_extension,NULL,"worm-extension","how many pixels on either edge of the backbone to include (head and tail)",-1) \
+  ARG(ARG_INT0,output_width,NULL,"out-width","the width of the output image",-1) \
+  ARG(ARG_INT0,output_height,NULL,"out-height","the height of the output image",-1) \
+  ARG(ARG_INT0,output_extension,NULL,"out-extension","how many pixels on either edge of the backbone to include (head and tail)",-1) \
+  ARG(ARG_INT0,output_slice,NULL,"out-slice","output a 2D slice at the specified depth",-1) \
   ARG(ARG_FIL0,output_filename,"o","output","the output image (as raw data)",NULL) \
   ARG(ARG_INT0,sd_sample_size,NULL,"sdss","the sample size for computing standard deviation",1000) \
   ARG(ARG_DBL0,thresh_sds,"t","thresh","the number of standard deviations above mean makes a pixel considered part of the worm",0.5) \
