@@ -682,15 +682,16 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
     wu->sh=sh;
     wu->j_start=i*(sh.dst_height/n_threads);
     if(i==n_threads-1) {
-      wu->j_end=sh.dst_height-1;
+      wu->j_end=sh.dst_height;
     } else {
-      wu->j_end=(i+1)*(sh.dst_height/n_threads)-1;
+      wu->j_end=(i+1)*(sh.dst_height/n_threads);
     }
     pthread_create(&thread[i],NULL,restack_worker,(void*)wu);
   }
   for(i=0;i<n_threads;i++) {
     void* status;
     pthread_join(thread[i], &status);
+    free(status);
   }
   printf("\n\nSyncing to disk...\n");
   msync(sh.new_data,length,MS_SYNC);
@@ -790,7 +791,7 @@ void* restack_worker(void* workunit) {
     }
     progress(j+1,sh.dst_height,0,"planes");
   }
-  return NULL;
+  return workunit;
 }
 
 /*
