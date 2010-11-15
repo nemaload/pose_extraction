@@ -1,6 +1,6 @@
 CFILES=straighten.c util.c debug.c graphics.c argboiler.c
-GCCOPTS=-lg2 -lgd -lm -lX11 -lXext -largtable2 -lgsl -lgslcblas -lrt -o straighten
-RUNOPTS=../TU3335.raw --width 2437 --height 1851 -p -n3 #--out-slice=80
+GCCOPTS=-DNO_X11 -lg2 -lgd -lm -lX11 -lXext -largtable2 -lgsl -lgslcblas -lrt -o straighten
+RUNOPTS=../worm_data/TU3335.raw --width 2437 --height 1851 -p -n4 #--out-slice=80
 DEBUGOPTS=-DNO_PROGRESS_BARS -DGSL_RANGE_CHECK_OFF -g
 OPTOPTS=-mtune=native -march=native -O3
 

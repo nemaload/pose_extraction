@@ -321,6 +321,7 @@ int refine_backbone(const image_t* image, point_t* sample, const args_t* args, d
                                         x.p[2]/args->image_scale,\
       (image->height/args->image_scale)-x.p[1]/args->image_scale
 #endif
+  printf("\e[s");
   while(delta_history < args->delta_history && iterations < args->restart_iterations) {
     kdtree_t* kdtree;
 
@@ -413,7 +414,6 @@ int refine_backbone(const image_t* image, point_t* sample, const args_t* args, d
     } else {
       delta_history = 0;
     }
-    //printf("iter_delta: %lf\n", iter_delta);
 
     memcpy(backbone,backbone_new,n*sizeof(dpoint_t));
 
@@ -434,7 +434,7 @@ int refine_backbone(const image_t* image, point_t* sample, const args_t* args, d
     memset(dh_str,32,args->delta_history+1);
     memset(dh_str,'=',delta_history);
     dh_str[delta_history]='>';
-    printf("\e[0G[\e[1;32;44m%c\e[m] iterations: %d; delta: %s%lf\t\e[32;44m%s\e[m]",\
+    printf("\e[u[\e[1;32;44m%c\e[m] iterations: %d; delta: %s%lf\t\e[32;44m%s\e[m]",\
         spinner[iterations%(sizeof(spinner)-1)],\
         iterations++,\
         (iter_delta>args->refine_threshhold*1.2)?\
@@ -616,6 +616,8 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
     void* status;
     pthread_join(thread[i], &status);
   }
+  printf("\n\nSyncing to disk...\n");
+  msync(sh.new_data,length,MS_SYNC);
 }
 
 void* restack_worker(void* workunit) {
@@ -699,12 +701,13 @@ void* restack_worker(void* workunit) {
             pixel = (unsigned short) pixel_d;
           }
         }
-        sh.new_data[k*sh.dst_width*sh.dst_height+j*sh.dst_width+i]=pixel;
-        sched_yield();
+        unsigned short* nd_pixel = (&(sh.new_data[k*sh.dst_width*sh.dst_height+j*sh.dst_width+i]));
+        *nd_pixel=pixel;
 #define INC_P_X(c) \
         p##c += dx##c;
         FOREACH3(INC_P_X)
       }
+      //sched_yield();
 #define INC_P_Z(c) \
       pz##c += dz##c;
       FOREACH3(INC_P_Z)
@@ -798,8 +801,6 @@ int main(int argc, char** argv) {
     image_t output;
     restack_image(&output,&input,&args,backbone,n);
   step_end();
-
-  printf("Cleaning up...\n");
 
   return 0;
 }
