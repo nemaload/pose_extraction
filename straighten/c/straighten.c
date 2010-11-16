@@ -82,7 +82,7 @@ void precache_file(image_t input) {
     volatile unsigned short foo;
     long pagesize = sysconf(_SC_PAGESIZE);
     for(i=0;i*pagesize<input.length/2;i++) {
-      progress(i+1,input.length/2/pagesize,0,"pages");
+      progress(i+1,input.length/2/pagesize,"pages");
       for(;((i+1)%10)!=0 && i*pagesize<input.length/2;i++) {
         foo+=((unsigned short*)input.data)[i*pagesize];
       }
@@ -104,7 +104,7 @@ void compute_sd(const image_t* image, int sample_size, double* mean, double* sd)
   //gsl_ran_sample(image->r, sample, sample_size, image->data, image->length/2, 2);
   for(i=0; i<sample_size; i++) {
     sample[i]=pixel_get(image,random_point(image));
-    progress(i+1,sample_size,0,"samples");
+    progress(i+1,sample_size,"samples");
   }
 
   *mean = gsl_stats_ushort_mean(sample, 1, sample_size);
@@ -127,7 +127,7 @@ point_t* sample_bright_points(const image_t* image, double threshhold, int n) {
     p = random_point(image);
     if(pixel_get(image,p) > threshhold) {
       list[i++]=p;
-      progress(i,n,0,"brights");
+      progress(i,n,"brights");
     }
   }
   return list;
@@ -146,7 +146,7 @@ double* compute_distances(point_t* list, int n) {
   for(i=0; i<n; i++) {
     for(j=0; j<n; j++) {
       table[ix++] = distance_i(list[i],list[j]);
-      progress(ix,n2,0,"distances");
+      progress(ix,n2,"distances");
     }
   }
   return table;
@@ -168,7 +168,7 @@ int* compute_mst(double* distances, int n) {
     set[i]=i;
   }
   while(set_b<n) {
-    progress(set_b,n-1,0,"vertices");
+    progress(set_b,n-1,"vertices");
     double min_weight = INFINITY;
     int min_edge_1, min_edge_2;
     for(i=0;i<set_b;i++) {
@@ -264,7 +264,7 @@ dpoint_t* trace_backbone(int tip, const int* mst, const double* distances, const
     }
     backbone[j].index=j;
     j++;
-    progress(j,n,0,"controls");
+    progress(j,n,"controls");
   }
   *backbone_length = j;
   printf("]  Done tracing backbone! (%d/%d points)\e[K\n\n",j,n);
@@ -575,6 +575,8 @@ struct restack_shared {
   int no_interpolate;
   int output_slice;
   int three_d_output;
+  int* slices_done;
+  pthread_mutex_t* slices_done_mutex;
 };
 
 typedef struct {
@@ -673,9 +675,14 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
 
   sh.no_interpolate = args->no_interpolate;
   sh.output_slice = args->output_slice;
+  int slices_done=0;
+  sh.slices_done=&slices_done;
 
   int n_threads = args->n_threads;
   pthread_t* thread = malloc(sizeof(pthread_t)*n_threads);
+  pthread_mutex_t* slices_done_mutex = malloc(sizeof(pthread_mutex_t));
+  pthread_mutex_init(slices_done_mutex,NULL);
+  sh.slices_done_mutex=slices_done_mutex;
 
   for(i=0;i<n_threads;i++) {
     restack_workunit_t* wu=malloc(sizeof(restack_workunit_t));
@@ -789,7 +796,10 @@ void* restack_worker(void* workunit) {
       pz##c += dz##c;
       FOREACH3(INC_P_Z)
     }
-    progress(j+1,sh.dst_height,0,"planes");
+    pthread_mutex_lock(sh.slices_done_mutex);
+    (*sh.slices_done)++;
+    pthread_mutex_unlock(sh.slices_done_mutex);
+    progress_t(j+1,(*sh.slices_done),sh.dst_height,"planes");
   }
   return workunit;
 }

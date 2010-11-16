@@ -64,7 +64,7 @@ void half_step_start(const char* desc) {
 /*
  * This function is for displaying progress bars.
  */
-void progress(int i, int n, int l, char* desc) {
+void progress_tl(int i, int t, int n, int l, char* desc) {
 #ifdef PROGRESS_BAR_WIDTH
   static int last_l=0;
   static int last_i[5]={0,0,0,0,0};
@@ -92,7 +92,7 @@ void progress(int i, int n, int l, char* desc) {
       printf("\033[%dF",last_l-l);
       last_l=l;
     }
-    printf("\033[%dG%9d/%9d %10s\033[0K", PROGRESS_BAR_WIDTH+4, i, n, desc);
+    printf("\033[%dG%9d/%9d %10s\033[0K", PROGRESS_BAR_WIDTH+4, t, n, desc);
     fflush(stdout);
     if ((n/PROGRESS_BAR_WIDTH) == 0 || (i-1)%(n/PROGRESS_BAR_WIDTH) == 0 || (i-last_i[l])>=(i-1)%(n/PROGRESS_BAR_WIDTH)) {
       if(i/((double)n/PROGRESS_BAR_WIDTH)<=PROGRESS_BAR_WIDTH){
@@ -100,7 +100,7 @@ void progress(int i, int n, int l, char* desc) {
         fflush(stdout);
       }
     }
-    if(i>=n) {
+    if(t>=n) {
       printf("\033[%dG Done with %s!\033[0K",PROGRESS_BAR_WIDTH+4,desc);
       fflush(stdout);
       if(l==0) {
@@ -110,4 +110,16 @@ void progress(int i, int n, int l, char* desc) {
   }
   last_i[l]=i;
 #endif
+}
+
+void progress_l(int i, int n, int l, char* desc) {
+  progress_tl(i,i,n,l,desc);
+}
+
+void progress_t(int i, int t, int n, char* desc) {
+  progress_tl(i,t,n,0,desc);
+}
+
+void progress(int i, int n, char* desc) {
+  progress_tl(i,i,n,0,desc);
 }

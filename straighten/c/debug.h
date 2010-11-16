@@ -13,4 +13,7 @@ typedef enum {START, END} se_t;
 void half_step_start(const char*);
 void step_start(const char*);
 void step_end(void);
-void progress(int, int, int, char*);
+void progress_lt(int, int, int, int, char*);
+void progress_l(int, int, int, char*);
+void progress_t(int, int, int, char*);
+void progress(int, int, char*);
