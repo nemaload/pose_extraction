@@ -45,7 +45,11 @@
  */
 void init(image_t* image, const args_t* args) {
   init_rng(image);
-  fesetround(FE_DOWNWARD);
+  if(args->no_interpolate) {
+    fesetround(FE_TONEAREST);
+  } else {
+    fesetround(FE_DOWNWARD);
+  }
   image->width = args->input_width;
   image->height = args->input_height;
   compute_depth(image);
