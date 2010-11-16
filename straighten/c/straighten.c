@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <fenv.h>
 #include <math.h>
 #include <pthread.h>
 #include <sched.h>
@@ -44,6 +45,7 @@
  */
 void init(image_t* image, const args_t* args) {
   init_rng(image);
+  fesetround(FE_DOWNWARD);
   image->width = args->input_width;
   image->height = args->input_height;
   compute_depth(image);
@@ -710,6 +712,8 @@ void* restack_worker(void* workunit) {
   int j_start = wu->j_start;
   int j_end = wu->j_end;
   int i,j,k;
+  int two_d_input=0;
+  if(sh.src_depth==1){two_d_input=1;}
 
   for(j=j_start;j<j_end;j++) {
     double magnitude;
@@ -739,27 +743,28 @@ void* restack_worker(void* workunit) {
 #define COPY_P_Z(c) \
     pz##c = p##c;
     FOREACH3(COPY_P_Z)
-    int two_d_input=0;
-    if(sh.src_depth==1){two_d_input=1;}
     if(!sh.three_d_output) {
 #define INC_P_Z_S(c) \
       pz##c += (sh.output_slice-sh.src_depth/2)*dz##c;
       FOREACH3(INC_P_Z_S)
     } else {
 #define INIT_P_Z(c) \
-      pz##c -= (sh.dst_depth/2)*dz##c;
+      pz##c -= (((double)sh.dst_depth)/2)*dz##c;
       FOREACH3(INIT_P_Z)
     }
 
     for(k=0;k<sh.dst_depth;k++) {
 #define INIT_P_X(c) \
-      p##c = pz##c - dx##c*sh.dst_width/2;
+      p##c = pz##c - dx##c*(((double)sh.dst_width)/2);
       FOREACH3(INIT_P_X)
       for(i=0;i<sh.dst_width;i++) {
 #define P_INT(c) \
-        int pi##c=(int)p##c;
+        int pi##c=lrint(p##c);
         FOREACH3(P_INT)
         unsigned short pixel = 0;
+        if(k<=1&&i==0) {
+          printf("k: %d, i: %d, pi0: %d\n",k,i,pi0);
+        }
         if(pi0>=0&&pi1>=0&&pi2>=0&&(pi0<sh.src_depth-1||two_d_input)&&pi1<sh.src_height-1&&pi2<sh.src_width-1) {
           if(sh.no_interpolate) {
             pixel = pixel_get_(((unsigned short*)sh.data),pi0,pi1,pi2,sh.src_width,sh.src_height);
