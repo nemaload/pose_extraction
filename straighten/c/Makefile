@@ -1,6 +1,6 @@
 CFILES=straighten.c util.c debug.c graphics.c argboiler.c
-GCCOPTS=-DNO_X11 -lg2 -lgd -lm -lX11 -lXext -largtable2 -lgsl -lgslcblas -lrt -o straighten
-RUNOPTS=../worm_data/TU3335.raw --width 2437 --height 1851 -p -n4 #--out-slice=80
+GCCOPTS=-lg2 -lgd -lm -lX11 -lXext -largtable2 -lgsl -lgslcblas -lrt -o straighten
+RUNOPTS=../worm_data/TU3335.raw --width 2437 --height 1851 -p -n4 --out-slice=80 -s 2.0
 DEBUGOPTS=-DNO_PROGRESS_BARS -DGSL_RANGE_CHECK_OFF -g
 OPTOPTS=-mtune=native -march=native -O3
 
@@ -8,6 +8,10 @@ all: straighten run
 
 straighten: debug.h util.h graphics.h argboiler.h argboiler_args.h Makefile $(CFILES)
 	gcc $(OPTOPTS) $(CFILES) $(GCCOPTS)
+
+.PHONY : noprogress
+noprogress: debug.h util.h graphics.h argboiler.h argboiler_args.h Makefile $(CFILES)
+	gcc -DNO_PROGRESS_BARS $(OPTOPTS) $(CFILES) $(GCCOPTS)
 
 .PHONY : run
 run: straighten
