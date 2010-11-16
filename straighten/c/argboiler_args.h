@@ -25,6 +25,9 @@ static const int automatic=-1;
   ARG(ARG_DBL0,image_scale,"s","scale","factor to divide image width and height by in display",4.0) \
   ARG(ARG_INT0,x_delay_ms,"x","xdelay","milliseconds to wait at the end of step 7 before closing the window",0) \
   ARG(ARG_LIT0,no_interpolate,"c","no-interp","don't interpolate input pixels when restacking",0) \
+  ARG(ARG_FIL0,dump_spline,NULL,"dump-spline","dump control points to specified TSV file before restack","") \
+  ARG(ARG_FIL0,use_spline,NULL,"use-spline","use spline from specified TSV file instead of determining it","") \
+  ARG(ARG_LIT0,no_output,NULL,"no-output","do not restack - used in conjunction with --dump-spline",0) \
   ARG(ARG_INT0,n_threads,"n","threads","number of threads to use (for restacking)",2) \
   ARG(ARG_FIL0,output_filename,"o","output","the output image (as raw data) [default: input+'.out']","") \
   ARG(ARG_INT0,output_width,NULL,"out-width","the width of the output image",automatic) \
