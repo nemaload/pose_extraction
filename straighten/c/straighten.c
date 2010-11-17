@@ -541,6 +541,37 @@ int refine_backbone(const image_t* image, point_t* sample, const args_t* args, d
 }
 
 /*
+ * [Dump/Load Spline]
+ */
+void dump_spline(const char* filename, dpoint_t* backbone, int n) {
+  FILE* fd = fopen(filename,"w");
+  int i;
+  for(i=0;i<n;i++) {
+    fprintf(fd,"%.10lf\t%.10lf\t%.10lf\n",backbone[i].p[0],backbone[i].p[1],backbone[i].p[2]);
+  }
+  fclose(fd);
+}
+
+#define LOAD_SPLINE_BUF 50
+dpoint_t* load_spline(const char* filename, int* n) {
+  *n=0;
+  dpoint_t* backbone = malloc(sizeof(dpoint_t)*LOAD_SPLINE_BUF);
+  FILE* fd = fopen(filename,"r");
+  while(fscanf(fd,"%lf\t%lf\t%lf\n",&(backbone[*n].p[0]),&(backbone[*n].p[1]),&(backbone[*n].p[2]))!=EOF) {
+    (*n)++;
+    if((*n)%LOAD_SPLINE_BUF==0) {
+      dpoint_t* tmp = realloc(backbone,sizeof(dpoint_t)*((*n)+LOAD_SPLINE_BUF));
+      if(!tmp) {
+        perror("Could not realloc");
+      } else {
+        backbone = tmp;
+      }
+    }
+  }
+  return backbone;
+}
+
+/*
  * [Step 9]
  * Open the output image with mmap
  */
@@ -766,9 +797,6 @@ void* restack_worker(void* workunit) {
         int pi##c=lrint(p##c);
         FOREACH3(P_INT)
         unsigned short pixel = 0;
-        if(k<=1&&i==0) {
-          printf("k: %d, i: %d, pi0: %d\n",k,i,pi0);
-        }
         if(pi0>=0&&pi1>=0&&pi2>=0&&(pi0<sh.src_depth-1||two_d_input)&&pi1<sh.src_height-1&&pi2<sh.src_width-1) {
           if(sh.no_interpolate) {
             pixel = pixel_get_(((unsigned short*)sh.data),pi0,pi1,pi2,sh.src_width,sh.src_height);
@@ -853,50 +881,64 @@ int main(int argc, char** argv) {
     }
   }
   
-  step_start("computing mean & s.d.");
-    compute_sd(&input, args.sd_sample_size, &mean, &sd);
-    printf("The standard deviation of %d randomly chosen points is: %lf\nThe mean is: %lf\n", args.sd_sample_size, sd, mean);
-    input.threshhold = mean + sd*args.thresh_sds;
-    printf("The threshhold is: %lf\n", input.threshhold);
-  step_end();
-
-  int refine_success=0;
-  while(!refine_success) {
-    step_start("sampling for MST");
-      w = sample_bright_points(&input, input.threshhold, args.mst_sample_size);
+  if(!args.use_spline[0]) {
+    step_start("computing mean & s.d.");
+      compute_sd(&input, args.sd_sample_size, &mean, &sd);
+      printf("The standard deviation of %d randomly chosen points is: %lf\nThe mean is: %lf\n", args.sd_sample_size, sd, mean);
+      input.threshhold = mean + sd*args.thresh_sds;
+      printf("The threshhold is: %lf\n", input.threshhold);
     step_end();
 
-    step_start("computing distances for MST");
-      distances = compute_distances(w, args.mst_sample_size);
-    step_end();
+    int refine_success=0;
+    while(!refine_success) {
+      step_start("sampling for MST");
+        w = sample_bright_points(&input, input.threshhold, args.mst_sample_size);
+      step_end();
 
-    step_start("Prim's algorithm");
-      mst = compute_mst(distances, args.mst_sample_size);
-    step_end();
+      step_start("computing distances for MST");
+        distances = compute_distances(w, args.mst_sample_size);
+      step_end();
 
-    //print_mst(mst,args.mst_sample_size);
+      step_start("Prim's algorithm");
+        mst = compute_mst(distances, args.mst_sample_size);
+      step_end();
 
-    step_start("Finding tip");
-      tip = find_tip(0,mst,distances,NULL,args.mst_sample_size);
-    step_end();
+      //print_mst(mst,args.mst_sample_size);
 
-    step_start("Tracing backbone");
-      backbone=trace_backbone(tip,mst,distances,w,args.mst_sample_size,&n);
-    step_end();
+      step_start("Finding tip");
+        tip = find_tip(0,mst,distances,NULL,args.mst_sample_size);
+      step_end();
 
-    half_step_start("sampling for E_image");
-      refine_sample = perform_sample(&input,args.refine_sample_size,input.threshhold);
-    step_end();
+      step_start("Tracing backbone");
+        backbone=trace_backbone(tip,mst,distances,w,args.mst_sample_size,&n);
+      step_end();
 
-    step_start("Refining backbone");
-      refine_success=refine_backbone(&input,refine_sample,&args,backbone,n);
+      half_step_start("sampling for E_image");
+        refine_sample = perform_sample(&input,args.refine_sample_size,input.threshhold);
+      step_end();
+
+      step_start("Refining backbone");
+        refine_success=refine_backbone(&input,refine_sample,&args,backbone,n);
+      step_end();
+    }
+  } else {
+    step_start("Reading spline");
+      backbone=load_spline(args.use_spline,&n);
     step_end();
   }
 
-  step_start("Restacking to output file");
-    image_t output;
-    restack_image(&output,&input,&args,backbone,n);
-  step_end();
+  if(args.dump_spline[0]) {
+    step_start("Dumping spline");
+      dump_spline(args.dump_spline,backbone,n);
+    step_end();
+  }
+
+  if(!args.no_output) {
+    step_start("Restacking to output file");
+      image_t output;
+      restack_image(&output,&input,&args,backbone,n);
+    step_end();
+  }
 
   return 0;
 }
