@@ -65,4 +65,8 @@ kdtree_t* kdtree_build(const dpoint_t*,int);
 const kdtree_t* kdtree_search(const kdtree_t*, point_t);
 void kdtree_free(kdtree_t*);
 
+void* open_mmapped_file_read(const char*, int*);
+void precache_file(image_t);
+void* open_mmapped_file_write(const char*, int);
+
 #endif

@@ -6,6 +6,12 @@
 #include <string.h>
 #define _GNU_SOURCE
 #include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #define RANDOM_SEED
 
 /*
@@ -220,4 +226,55 @@ void kdtree_free(kdtree_t* tree) {
   kdtree_free(tree->left);
   kdtree_free(tree->right);
   free(tree);
+}
+
+void* open_mmapped_file_read(const char* filename, int* length) {
+  struct stat fs;
+  int fd;
+  void* region;
+
+  //First we stat the file to get its length.
+  if(stat(filename, &fs)) {
+    perror("cannot read file");
+    return NULL;
+  }
+  *length = fs.st_size;
+  
+  //Now get a file descriptor and mmap!
+  fd = open(filename, O_RDONLY);
+  region=mmap(NULL, *length, PROT_READ, MAP_SHARED, fd, 0);
+
+  return region;
+}
+
+void precache_file(image_t input) {
+    int i,j;
+    volatile unsigned short foo;
+    long pagesize = sysconf(_SC_PAGESIZE);
+    for(i=0;i*pagesize<input.length/2;i++) {
+      progress(i+1,input.length/2/pagesize,"pages");
+      for(;((i+1)%10)!=0 && i*pagesize<input.length/2;i++) {
+        foo+=((unsigned short*)input.data)[i*pagesize];
+      }
+    }
+}
+
+void* open_mmapped_file_write(const char* filename, int length) {
+  struct stat fs;
+  int fd;
+  void* region;
+  
+  //Now get a file descriptor and mmap!
+  fd = open(filename, O_RDWR|O_TRUNC|O_CREAT, S_IRUSR|S_IWUSR|S_IROTH|S_IWOTH);
+  if(fd<0) {
+    perror("couldn't open file");
+    printf("file was: %s\n",filename);
+  }
+  ftruncate(fd,length);
+  region=mmap(NULL, length, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+  if(region==MAP_FAILED) {
+    perror("couldn't mmap file");
+  }
+
+  return region;
 }
