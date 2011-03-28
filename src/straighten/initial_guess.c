@@ -3,6 +3,8 @@
  * Here we compute the mean and standard deviation of the data;
  * but to avoid actually reading in all that data, we take a random
  * sample first.
+ *
+ * OBSOLETED by rejection sampling
  */
 void compute_sd(const image_t* image, int sample_size, double* mean, double* sd) {
   unsigned short* sample;
@@ -23,18 +25,18 @@ void compute_sd(const image_t* image, int sample_size, double* mean, double* sd)
 
 /*
  * [Step 2]
- * Given a threshhold value, randomly sample points, adding them to
+ * Sample points according to brightness, adding them to
  * a point list if they are above the threshhold, until we have a
  * specified number of points.
  */
 
-point_t* sample_bright_points(const image_t* image, double threshhold, int n) {
+point_t* sample_bright_points(const image_t* image, int n) {
   point_t* list = malloc(sizeof(point_t)*n);
   point_t p;
   int i=0;
   while(i<n) {
     p = random_point(image);
-    if(pixel_get(image,p) > threshhold) {
+    if(pixel_get(image,p) > gsl_rng_uniform_int(image->r,1<<16)) {
       list[i++]=p;
       progress(i,n,"brights");
     }

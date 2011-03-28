@@ -42,11 +42,11 @@ static const int automatic=-1;
   ARG(ARG_INT1,input_width,"w","width","the width of each input image slice",-1) \
   ARG(ARG_INT1,input_height,"h","height","the height of each input image slice",-1) \
   ARG(ARG_LITN,precache,"p","precache","mmap the image and read all the pixels; performing no processing if specified twice.",0) \
-  ARG(ARG_INT0,sd_sample_size,NULL,"sdss","the sample size for computing standard deviation",1000) \
+  ARG(ARG_INT0,sd_sample_size,NULL,"sdss","the sample size for computing standard deviation",5000) \
   ARG(ARG_DBL0,thresh_sds,"t","thresh","the number of standard deviations above mean makes a pixel considered part of the worm",0.5) \
   ARG(ARG_INT0,mst_sample_size,NULL,"mstss","the sample size for making the MST",120) \
   ARG(ARG_INT0,refine_sample_size,NULL,"rfss","the sample size of E_image in refining the backbone",3000) \
-  ARG(ARG_INT0,refine_refresh_size,NULL,"rfrs","the number of E_image samples to replace each iteration",10) \
+  ARG(ARG_INT0,refine_refresh_size,NULL,"rfrs","the number of E_image samples to replace each iteration",100) \
   ARG(ARG_DBL0,refine_threshhold,NULL,"rfth","the average distance (in pixels) points must move less than to terminate refinement",1.55) \
   ARG(ARG_INT0,restart_iterations,NULL,"rfri","if the refinement doesn't converge after this many iterations, restart with a new MST",1000) \
   ARG(ARG_INT0,delta_history,NULL,"rfdh","the number of iterations the points must move very little in a row to count",150) \
@@ -163,16 +163,13 @@ int main(int argc, char** argv) {
   
   if(!args.use_spline[0]) {
     step_start("computing mean & s.d.");
-      compute_sd(&input, args.sd_sample_size, &mean, &sd);
-      printf("The standard deviation of %d randomly chosen points is: %lf\nThe mean is: %lf\n", args.sd_sample_size, sd, mean);
-      input.threshhold = mean + sd*args.thresh_sds;
-      printf("The threshhold is: %lf\n", input.threshhold);
+      printf("rejection sample instead!\n");
     step_end();
 
     int refine_success=0;
     while(!refine_success) {
       step_start("sampling for MST");
-        w = sample_bright_points(&input, input.threshhold, args.mst_sample_size);
+        w = sample_bright_points(&input, args.mst_sample_size);
       step_end();
 
       step_start("computing distances for MST");

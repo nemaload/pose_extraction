@@ -102,7 +102,7 @@ point_t* perform_sample(const image_t* image, int n, double threshhold) {
   for(i=0;i<n;i++)
   while(i<n) {
     point_t p = random_point(image);
-    if(pixel_get(image,p) > threshhold) {
+    if(pixel_get(image,p) > gsl_rng_uniform_int(image->r, 1<<16)) {
       result[i++]=p;
       progress(i,n,"brights");
     }
@@ -114,7 +114,7 @@ void replace_in_sample(const image_t* image, point_t* sample, int k, int n, doub
   int i=0;
   while(i<k) {
     point_t p = random_point(image);
-    if(pixel_get(image,p) > threshhold) {
+    if(pixel_get(image,p) > gsl_rng_uniform_int(image->r, 1<<16)) {
       i++;
       sample[gsl_rng_uniform_int(image->r,n)]=p;
     }
