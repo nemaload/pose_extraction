@@ -1,0 +1,3 @@
+#!/bin/sh
+make bin/straighten
+bin/straighten images/TU3335.raw --width 2437 --height 1851 -p -n4 --out-slice=80 -s 2.0
