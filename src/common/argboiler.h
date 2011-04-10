@@ -55,20 +55,18 @@ ARGBOILER(ARG_CONSTS)
 int parse_args(int argc, char** argv, args_t* params) {
   /*
    * We use the argtable library to parse arguments. The first step is
-   * building the titular argtable. This is the third place.
+   * building the titular argtable.
    */
   ARGBOILER(ARG_TABVAL)
   struct arg_end* end = arg_end(10);
   /*
-   * Don't forget to actually add your new args into the argtable below
-   * before the "end" sentinel.
+   * Initialize argtable
    */
   void* argtable[] = {ARGBOILER(ARG_TABLE) end};
   int nerrors;
 
   /*
-   * Here's the fifth place, where we fill in the defaults prior to
-   * running the arg_parse function.
+   * Fill in defaults
    */
 
   ARGBOILER(ARG_TABINIT)
@@ -85,14 +83,6 @@ int parse_args(int argc, char** argv, args_t* params) {
   } else {
     /*
      * Finally, here we fill in the "params" structure.
-     *
-     * TODO:
-     * There might be some way to handle these five needs
-     * while specifying arguments in only one place, by
-     * some very clever macro trickery, involving using a
-     * functional macro name as the argument to a functional
-     * macro, and defining such a higher-order macro with
-     * all the param data. I'll get to that later...
      */
     ARGBOILER(ARG_INIT)
     return 0;
