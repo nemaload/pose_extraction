@@ -96,7 +96,7 @@ void print_dpoint(dpoint_t p) {
   printf("\n");
 }
 
-point_t* perform_sample(const image_t* image, int n, double threshhold) {
+point_t* perform_sample(const image_t* image, int n) {
   int i=0;
   point_t* result=malloc(sizeof(point_t)*n);
   for(i=0;i<n;i++)
@@ -110,7 +110,7 @@ point_t* perform_sample(const image_t* image, int n, double threshhold) {
   return result;
 }
 
-void replace_in_sample(const image_t* image, point_t* sample, int k, int n, double threshhold) {
+void replace_in_sample(const image_t* image, point_t* sample, int k, int n) {
   int i=0;
   while(i<k) {
     point_t p = random_point(image);

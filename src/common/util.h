@@ -24,7 +24,6 @@ typedef struct {
   int length;
   void* data;
   gsl_rng* r;
-  double threshhold;
 } image_t;
 
 typedef struct {
@@ -49,8 +48,8 @@ dpoint_t reflect2(dpoint_t,dpoint_t);
 
 void print_dpoint(dpoint_t);
 
-point_t* perform_sample(const image_t*, int, double);
-void replace_in_sample(const image_t*, point_t*, int, int, double);
+point_t* perform_sample(const image_t*, int);
+void replace_in_sample(const image_t*, point_t*, int, int);
 
 typedef struct kd_node {
   dpoint_t location;
