@@ -1,0 +1,3 @@
+#!/bin/sh
+make bin/sampler
+bin/sampler images/TU3335.raw --width 2437 --height 1851 -s 2.0
