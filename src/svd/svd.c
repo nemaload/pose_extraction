@@ -175,10 +175,6 @@ int main(int argc, char** argv) {
       if(g>1) g=1.0;
       if(b<0) b=0.0;
       if(b>1) b=1.0;
-      mean = (r+g+b)/3.0;
-      if(mean<0.2) {
-        r=0; g=0; b=0;
-      }
       unsigned char *pixel = (&(shapes[(p[1]*input.width+p[2])*3]));
       printf(" %lf, %lf, %lf -> %d, %d, %d\n",r,g,b,(unsigned char)(r*255.0),(unsigned char)(g*255.0),(unsigned char)(b*255.0));
       pixel[0]=(unsigned char)(r*255.0);
