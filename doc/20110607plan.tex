@@ -1,0 +1,120 @@
+\documentclass[letter,11pt]{article}
+
+\usepackage[english]{babel}
+\usepackage[T1]{fontenc}
+%\usepackage[ansinew]{inputenc}
+\usepackage{lmodern}	% font definition
+\usepackage{datetime}
+\usepackage{verbatim}
+
+\usepackage{parskip}
+\usepackage{graphicx}
+\usepackage[top=2.2cm,bottom=2.1cm,right=1.9cm,left=1.9cm]{geometry}
+\usepackage{pdflscape}
+
+\usepackage[urw-garamond]{mathdesign}
+
+\usepackage{tikz}
+
+\usetikzlibrary{arrows,shapes,shapes.callouts,decorations.text}
+
+\usepackage{url}
+\usepackage[ps2pdf,breaklinks=true,bookmarks=true,bookmarksopen,bookmarksopenlevel=1,pdfpagelayout=OneColumn,pagebackref=true]{hyperref}
+\usepackage{breakurl}
+
+\hypersetup{
+    bookmarks=true,         % show bookmarks bar?
+    unicode=false,          % non-Latin characters in Acrobat’s bookmarks
+    pdftoolbar=false,        % show Acrobat’s toolbar?
+    pdfmenubar=true,        % show Acrobat’s menu?
+    pdffitwindow=true,     % window fit to page when opened pdfstartview={FitV},    % fits the width of the page to the window
+    pdftitle={Whole-Body Neural Recordings in a Month},    % title
+    pdfauthor={David Dalrymple},     % author
+    pdfcreator={David Dalrymple},   % creator of the document
+    pdfproducer={David Dalrymple}, % producer of the document
+    pdfnewwindow=true,      % links in new window
+    colorlinks=true,       % false: boxed links; true: colored links
+    linkcolor=blue,          % color of internal links
+    citecolor=green,        % color of links to bibliography
+    filecolor=magenta,      % color of file links
+    urlcolor=cyan           % color of external links
+}
+
+\renewcommand*{\backref}[1]{}
+\renewcommand*{\backrefalt}[4]{%
+  \ifcase #1 %
+(Not cited.)%
+\or
+(Cited on page #2.)%
+\else
+(Cited on pages #2.)%
+\fi
+}
+
+\newcommand{\attrib}[1]{\nopagebreak{\raggedleft\footnotesize #1\par}}
+\newcommand{\todo}[1]{\textcolor{lightgray}{\textit{<<#1>>}}}
+\newcommand{\tbc}{\begin{center} \todo{to be completed} \end{center}}
+\newcommand{\tbcsubsubsection}[1]{ \refstepcounter{subsubsection}%
+  \subsubsection*{\thesubsubsection \quad #1} \tbc}
+\newcommand{\cel}{{\em C. elegans}}
+
+\setlength{\parskip}{0.3cm plus3mm minus1mm}
+\setlength{\parindent}{0cm}
+
+\begin{document}
+
+\begin{center}
+	\textsc{\LARGE {\bfseries Whole-Body Neural Recordings in a Month}}\\[2mm]
+  \textit{An amibitious proposal by}  \textrm{David Dalrymple}\\[1mm]
+	%{\small {\bfseries \color{red} Draft 3} compiled \currenttime, \today\\[0mm]}
+	\rule[2mm]{0.66\textwidth}{0.25mm}\\[4mm]
+\end{center}
+
+\thispagestyle{empty}
+
+As a reader of this document, you are already aware of my goal to simulate the
+complete nervous system of \cel\ in software, based on new experimental data
+enabled by a suite of technologies coming to be known as ``optical patch-clamping.''
+By systematically perturbing neurons using light-driven channels and pumps,
+then observing the response of the network using fluorescent voltage sensors,
+it is my hope and belief that we can accurately infer circuit dynamics.
+
+A initial exploratory step towards this goal is to exclude the perturbative
+aspect. This would mean that no special algorithms would be needed to perform
+the physical experiment, since all the data can be recorded and analyzed
+post-hoc. Even this level of recording would be, as far as I know,
+unprecedented, and very likely to be scientifically interesting. The voltage
+sensor and associated imaging tools are already working in other model systems,
+like {\em E. coli} and cardiomyocytes, so the major barrier to this milestone
+is the pan-neuronal expression of the voltage sensor in \cel.
+
+I'm going to be traveling for much of July and August. I know next to nothing
+about transgenesis, but I'm pushing to reach this goal by July 1. I'd like your
+feedback on whether this proposed timeline makes any sense:
+
+\begin{center}
+\begin{tikzpicture}[scale=0.45,yscale=-1,rounded corners=3pt,transform canvas={xshift=-1cm}]
+  \draw [->] (0,0) -- (0,15);
+  \foreach \y in {0,...,15}
+    \draw (-4pt,\y) -- (4pt,\y);
+    \node[rectangle callout, fill=yellow, opacity=.8, overlay, callout absolute pointer={(0,0)}] at (-8,0.5) {Today, {\bfseries June 7}};
+    \node[rectangle callout, fill=yellow, opacity=.8, overlay, callout absolute pointer={(0,15)}] at (-8,14.5) {{\bfseries June 22}};
+    \node[rectangle callout, fill=blue!50, opacity=.8, overlay, callout absolute pointer={(0,2.5)},callout pointer width=0.7cm] at (7,0.5) {Acquire \cel\ specimens};
+    \node[rectangle callout, fill=blue!50, opacity=.8, overlay, callout absolute pointer={(0,3.3)}] at (10,2.5) {Acquire voltage sensor DNA};
+    \node[rectangle callout, fill=red!60, opacity=.8, overlay, callout absolute pointer={(0,3.6)}] at (9,4.5) {Fuse voltage sensor to {\em unc-119} promoter};
+    \node[rectangle callout, fill=red!60, opacity=.8, overlay, callout absolute pointer={(0,6.3)}] at (7,6.3) {PCR transgene};
+    \node[rectangle callout, fill=red!60, opacity=.8, overlay, callout absolute pointer={(0,6.6)},callout pointer width=0.7cm] at (7,8.5) {Perform microinjections};
+    \node[rectangle callout, fill=red!60, opacity=.8, overlay, callout absolute pointer={(0,10.6)}] at (7,11.0) {Screen};
+    \node[rectangle callout, fill=blue!50, opacity=.8, overlay, callout absolute pointer={(0,14.6)}] at (7,14.0) {Initial recordings};
+\end{tikzpicture}
+\end{center}
+
+\vspace{7cm}
+
+It would also be very helpful if someone experienced with these procedures could
+coach me through them; in addition, it's not clear in what laboratory they should
+be performed.
+
+Thank you for your time and assistance!
+
+\end{document}
