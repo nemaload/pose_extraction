@@ -170,7 +170,7 @@ int main(int argc, char** argv) {
     strcat(filename_,ssuffix);
     sfilename=filename_;
   } else {
-    sfilename = args.output_filename;
+    sfilename = args.shapes_filename;
   }
   /*
   step_start("reconstructing shapes");
