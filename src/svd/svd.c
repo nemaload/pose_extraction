@@ -36,55 +36,6 @@ void init(image_t* image, const args_t* args) {
   image->depth = image->length / image->width / image->height;
 }
 
-struct pqn {
-  int x;
-  int y;
-  struct pqn* next;
-};
-struct pq {
-  struct pqn* head;
-  struct pqn* tail;
-};
-void enpq(struct pq* q, int x, int y) {
-  struct pqn *nqn = malloc(sizeof(struct pqn));
-  nqn->x=x; nqn->y=y;
-  nqn->next=NULL;
-  if(q->tail==NULL) {
-    q->head=q->tail=nqn;
-  } else {
-    q->tail->next=nqn;
-    q->tail=nqn;
-  }
-}
-int depq(struct pq* q, int* x, int* y) {
-  if(q->head == NULL) {
-    return 0;
-  }
-  *x = q->head->x; *y=q->head->y;
-  struct pqn* nhead = q->head->next;
-  q->head=nhead;
-  if(q->head == NULL) {
-    q->tail=NULL;
-  }
-  return 1;
-}
-void empq(struct pq* q) {
-  q->head=q->tail=NULL;
-}
-//When you "test" make sure you haven't already "act"ed!
-void floodfill(int ix, int iy, int (*test)(int x, int y), void (*act)(int x, int y)) {
-  struct pq q[0];
-  empq(q);
-  enpq(q,ix,iy);
-  int x,y;
-  while(depq(q,&x,&y)) {
-    if(test(x-1,y)) { act(x-1,y); enpq(q,x-1,y); }
-    if(test(x+1,y)) { act(x+1,y); enpq(q,x+1,y); }
-    if(test(x,y-1)) { act(x,y-1); enpq(q,x,y-1); }
-    if(test(x,y+1)) { act(x,y+1); enpq(q,x,y+1); }
-  }
-}
-
 int main(int argc, char** argv) {
   args_t args;
   image_t input;

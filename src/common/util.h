@@ -68,4 +68,20 @@ void* open_mmapped_file_read(const char*, int*);
 void precache_file(image_t);
 void* open_mmapped_file_write(const char*, int);
 
+struct pqn {
+  int x;
+  int y;
+  struct pqn* next;
+};
+struct pq {
+  struct pqn* head;
+  struct pqn* tail;
+};
+void enpq(struct pq*, int, int);
+int depq(struct pq*, int*, int*);
+void empq(struct pq*);
+
+//When you "test" make sure you haven't already "act"ed!
+void floodfill(int, int, int(*test)(int, int), void (*act)(int, int));
+
 #endif
