@@ -1,6 +1,8 @@
 #ifndef IMAGE_UTILS
 #define IMAGE_UTILS
 
+#define TAU 6.283185307179586476925287
+
 #include <gsl/gsl_rng.h>
 
 #define FOREACH3(M) \
@@ -67,6 +69,16 @@ void kdtree_free(kdtree_t*);
 void* open_mmapped_file_read(const char*, int*);
 void precache_file(image_t);
 void* open_mmapped_file_write(const char*, int);
+void copy_file(const char* dest, const char* src);
+
+void lab2xyz(double* x, double* y, double* z, double l, double a, double b);
+void xyz2rgb(unsigned char* r, unsigned char* g, unsigned char* b, double x, double y, double z);
+void lab2rgb(unsigned char* R, unsigned char* G, unsigned char* B, double l, double a, double b);
+void lab2pix(void* rgb, double l, double a, double b);
+void xyz2pix(void* rgb, double x, double y, double z);
+void cl2pix(void* rgb, double c, double l);
+void hsv2pix(void* rgb, double h, double s, double v);
+void export_png(char* filename, int width, int height, int bpc, void* data);
 
 struct pqn {
   int x;

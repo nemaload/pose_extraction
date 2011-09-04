@@ -1,11 +1,14 @@
+#define _GNU_SOURCE
+#include <stdio.h>
+#include <string.h>
 #include <stdint.h>
 #include <fenv.h>
-#include <svdlib.h>
-#include <string.h>
-#include <stdio.h>
+#include <math.h>
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_statistics.h>
-#include <math.h>
+
+#include "../common/svdlib.h"
+
 #include "../common/util.h"
 #include "../common/debug.h"
 
@@ -13,13 +16,12 @@
   ARG(ARG_FIL1,input_filename,NULL,NULL,"the input image (as raw data)","") \
   ARG(ARG_INT1,input_width,"w","width","the width of each input image slice",-1) \
   ARG(ARG_INT1,input_height,"h","height","the height of each input image slice",-1) \
+  ARG(ARG_FIL0,output_filename,"o","output","name of the output folder [default: truncated input]","") \
   ARG(ARG_INT0,dimensions,"d","dim","the number of SVD axes to extract",100) \
   ARG(ARG_INT0,colors,"c","colors","the number of SVD axes to colorize",20) \
   ARG(ARG_INT0,plot_height,"h","plot-height","height of the plot in each shape layer",50) \
   ARG(ARG_LIT0,no_recons,"r","no-recons","don't bother writing the output image",0) \
-  ARG(ARG_FIL0,output_filename,"o","output","the output image (as raw data) [default: input+'.out']","") \
   ARG(ARG_INT0,shapes,"s","shapes","how many shapes to guess",100) \
-  ARG(ARG_FIL0,shapes_filename,"","shape-file","the shape stack (as raw data) [default: input+'.shapes']","") \
   ARG(ARG_DBL0,scale,"f","scale","the scale factor on SVD output interpretation",60.0) \
   ARG(ARG_DBL0,thresh,"t","threshhold","the similarity threshhold for filling shapes",0.6) \
 
@@ -40,10 +42,49 @@ int main(int argc, char** argv) {
   args_t args;
   image_t input;
   int length;
-  int i,j;
+  int i,j,k;
 
-  printf("Parsing command line...\n");
   parse_args(argc, argv, &args);
+
+  
+  step_start("L*a*b* test");
+  unsigned char* lab_test = malloc(args.input_width*args.input_width*3);
+  for(i=0;i<args.input_width;i++) {
+    for(j=0;j<args.input_width;j++) {
+      unsigned char* ptr = lab_test+(j+i*args.input_width)*3;
+      double x,y,l,a,b;
+      x=(double)j;
+      //x = 20.0*(double)(j/20);
+      y=(double)i;
+      x/=((double)args.input_width)/1.0;
+      y/=((double)args.input_width)/1.0;
+      cl2pix(ptr,x,y);
+    }
+  }
+  export_png("lab_test.png",args.input_width,args.input_width,8+3,lab_test);
+  step_end();
+
+  step_start("Equivalent RGB test");
+  unsigned char* rgb_test = malloc(args.input_width*args.input_width*3);
+  for(i=0;i<args.input_width;i++) {
+    for(j=0;j<args.input_width;j++) {
+      unsigned char* ptr = rgb_test+(j+i*args.input_width)*3;
+      double x,y,l,a,b;
+      x=(double)j;
+      y=(double)i;
+      //x = 20.0*(double)(j/20);
+      //y = 20.0*(double)(i/20);
+      y=(double)i;
+      x/=((double)args.input_width)/1.0;
+      y/=((double)args.input_width)/1.0;
+      hsv2pix(ptr,x,0.5,y);
+    }
+  }
+  export_png("rgb_test.png",args.input_width,args.input_width,8+3,rgb_test);
+  step_end();
+
+  return 0;
+  //  end */
 
   printf("Singular value decomposer\nDavid Dalrymple\n==================\n");
 
@@ -62,14 +103,15 @@ int main(int argc, char** argv) {
   step_start("prepping SVD");
   DMat A = svdNewDMat(input.width*input.height,input.depth);
   point_t point; int *p = point.p;
-  for(p[1]=0;p[1]<input.height;p[1]++) {
-    for(p[2]=0;p[2]<input.width;p[2]++) {
-      const int row = p[1]*input.width+p[2];
-      for(p[0]=0;p[0]<input.depth;p[0]++) {
-        const int col = p[0];
+  for(p[0]=0;p[0]<input.depth;p[0]++) {
+    const int col = p[0];
+    for(p[1]=0;p[1]<input.height;p[1]++) {
+      for(p[2]=0;p[2]<input.width;p[2]++) {
+        const int row = p[1]*input.width+p[2];
         A->value[row][col]=(double)pixel_get(&input,point);
       }
     }
+    
   }
   step_end();
   half_step_start("converting DMat to SMat");
@@ -80,22 +122,11 @@ int main(int argc, char** argv) {
   SVDRec result = svdLAS2A(As,args.dimensions);
   step_end();
 
-  const char* ofilename;
-  const char* osuffix = ".out";
-  if(args.output_filename[0]=='\0') {
-    char * filename_ = calloc(strlen(args.input_filename)+strlen(osuffix),1);
-    strcat(filename_,args.input_filename);
-    strcat(filename_,osuffix);
-    ofilename=filename_;
-  } else {
-    ofilename = args.output_filename;
-  }
-
+  /*
   step_start("reconstructing image");
   if(args.no_recons) {
     printf("--skipping--\n");
   } else {
-    unsigned short* output = open_mmapped_file_write(ofilename,length);
     for(p[1]=0;p[1]<input.height;p[1]++) {
       for(p[2]=0;p[2]<input.width;p[2]++) {
         const int row = p[1]*input.width+p[2];
@@ -112,18 +143,8 @@ int main(int argc, char** argv) {
     }
   }
   step_end();
+  
 
-  const char* sfilename;
-  const char* ssuffix = ".shapes";
-  if(args.shapes_filename[0]=='\0') {
-    char * filename_ = calloc(strlen(args.input_filename)+strlen(ssuffix),1);
-    strcat(filename_,args.input_filename);
-    strcat(filename_,ssuffix);
-    sfilename=filename_;
-  } else {
-    sfilename = args.shapes_filename;
-  }
-  /*
   step_start("reconstructing shapes");
   unsigned short* shapes = open_mmapped_file_write(sfilename,input.width*input.height*args.dimensions*2);
   for(p[1]=0;p[1]<input.height;p[1]++) {
@@ -137,10 +158,10 @@ int main(int argc, char** argv) {
     }
   }
   step_end();
-  */
+  
 
   DMat U = svdTransposeD(result->Ut);
-  /*
+  
   step_start("coloring shapes");
   unsigned char* shapes = open_mmapped_file_write(sfilename,input.width*input.height*3);
   double* colors = malloc(args.colors*3*sizeof(double));
@@ -183,6 +204,7 @@ int main(int argc, char** argv) {
   }
   step_end();*/
 
+  /*
   step_start("isolating shapes");
   unsigned short* shapes = open_mmapped_file_write(sfilename,input.width*(input.height+args.plot_height)*args.shapes*2);
   int* taken = calloc(input.width*input.height,sizeof(int));
@@ -267,6 +289,103 @@ int main(int argc, char** argv) {
       printf("==========================done with %d!\n",j);
     }
   }
+  step_end();
+  */
+
+  step_start("creating directory structure");
+  const char* dirname;
+  if(args.output_filename[0]=='\0') {
+    dirname = strdup(args.input_filename);
+    *(strchrnul(dirname,'.'))='\0';
+  } else {
+    dirname = args.output_filename;
+  }
+  /*
+   * dirname/
+   *   index.html
+   *   dims.json
+   *   raw/
+   *     0001.png ... NNNN.png
+   *   raw_c/
+   *     0001.png ... NNNN.png
+   *   recons/
+   *     0001.png ... NNNN.png
+   *   recons_c/
+   *     0001.png ... NNNN.png
+   *   cell/
+   *     0001/ ... MMMM/
+   *       bb.json
+   *       signal.json
+   *       gray.png
+   *       color.png
+   */
+  mkdir(dirname,0777);
+  chdir(dirname);
+  mkdir("raw",0777);
+  mkdir("raw_c",0777);
+  mkdir("recons",0777);
+  mkdir("recons_c",0777);
+  mkdir("cell",0777);
+  copy_file("index.html","../../src/svd/index.html");
+  step_end();
+
+
+  step_start("writing raw/ pngs");
+  chdir("raw");
+  int pngfn_l = strlen("0000.png")+1;
+  char* pngfn = malloc(pngfn_l);
+
+  //Find maximum point value to scale by.
+  double max=0.0;
+  for(i=0;i<input.depth*input.height*input.width;i++) {
+    if(max<((unsigned short*)input.data)[i]) {
+      max = (double)(((unsigned short*)input.data)[i]);
+    }
+  }
+  double scale = max/255.0;
+
+  unsigned char* pngbuf = malloc(input.width*input.height);
+  for(k=0;k<input.depth;k++) {
+    for(j=0;j<input.height;j++) {
+      for(i=0;i<input.width;i++) {
+        unsigned short *pixel = (unsigned short*)(input.data+2*(i+j*input.width+k*input.width*input.height));
+        pngbuf[i+j*input.width]=(unsigned char)(((double)(*pixel))/scale);
+      }
+    }
+    snprintf(pngfn,pngfn_l,"%04d.png",k);
+    export_png(pngfn,input.width,input.height,8+1,pngbuf);
+  }
+  chdir("..");
+  step_end();
+
+
+  step_start("writing recons/ pngs");
+
+  step_end();
+
+
+  step_start("writing raw_c/ pngs");
+
+  step_end();
+
+
+  step_start("writing recons_c/ pngs");
+
+  step_end();
+
+  
+  step_start("making cell/ directories");
+
+  step_end();
+
+
+  step_start("writing cell/ JSON");
+
+  step_end();
+
+
+  step_start("writing cell/ pngs");
+
   step_end();
 
   return 0;

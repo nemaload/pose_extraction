@@ -45,7 +45,9 @@ void step(se_t se, int inc, const char* desc) {
     total_time_rt += elapsed_rt;
     total_time_usr += elapsed_usr;
     printf("[Running total of time: %lfms/%lfms]\n" \
-           "------------------------------------------------------\n",total_time_usr,total_time_rt);
+           "------------------------------------------------------\n" \
+           "------------------------------------------------------\n" \
+           ,total_time_usr,total_time_rt);
   }
 }
 double elapsed(struct timespec e_t, struct timespec s_t) {

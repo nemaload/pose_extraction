@@ -12,6 +12,7 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <png.h>
 #define RANDOM_SEED
 
 /*
@@ -277,6 +278,129 @@ void* open_mmapped_file_write(const char* filename, int length) {
   }
 
   return region;
+}
+
+void copy_file(const char* dest, const char* src) {
+  int n;
+  void* s = open_mmapped_file_read(src,&n);
+  void* d = open_mmapped_file_write(dest,n);
+  memcpy(d,s,n);
+  munmap(s,n);
+  munmap(d,n);
+}
+
+/* Convert from L*a*b* doubles to XYZ doubles */
+void lab2xyz(double* x, double* y, double* z, double l, double a, double b) {
+  double finv(double t) {
+    return (t>(6.0/29.0))?(t*t*t):(3*(6.0/29.0)*(6.0/29.0)*(t-4.0/29.0));
+  }
+  double sl = (l+0.16)/1.16;
+  double ill[3] = {0.9643,1.00,0.8251}; //D50
+  *y = ill[1] * finv(sl);
+  *x = ill[0] * finv(sl + (a/5.0));
+  *z = ill[2] * finv(sl - (b/2.0));
+}
+
+/* Convert from XYZ doubles to sRGB bytes */
+void xyz2rgb(unsigned char* r, unsigned char* g, unsigned char* b, double x, double y, double z) {
+  double rl =  3.2406*x - 1.5372*y - 0.4986*z;
+  double gl = -0.9689*x + 1.8758*y + 0.0415*z;
+  double bl =  0.0557*x - 0.2040*y + 1.0570*z;
+  int clip = (rl < 0.0 || rl > 1.0 || gl < 0.0 || gl > 1.0 || bl < 0.0 || bl > 1.0);
+  if(clip) {
+    rl = (rl<0.0)?0.0:((rl>1.0)?1.0:rl);
+    gl = (gl<0.0)?0.0:((gl>1.0)?1.0:gl);
+    bl = (bl<0.0)?0.0:((bl>1.0)?1.0:bl);
+  }
+  if(clip) {rl=1.0;gl=bl=0.0;}
+  double correct(double cl) {
+    double a = 0.055;
+    return (cl<=0.0031308)?(12.92*cl):((1+a)*pow(cl,1/2.4)-a);
+  }
+  *r = (unsigned char)(255.0*correct(rl));
+  *g = (unsigned char)(255.0*correct(gl));
+  *b = (unsigned char)(255.0*correct(bl));
+}
+
+/* Convert from LAB doubles to sRGB bytes */
+void lab2rgb(unsigned char* R, unsigned char* G, unsigned char* B, double l, double a, double b) {
+  double x,y,z;
+  lab2xyz(&x,&y,&z,l,a,b);
+  xyz2rgb(R,G,B,x,y,z);
+}
+
+void lab2pix(void* rgb, double l, double a, double b) {
+  unsigned char* ptr = (unsigned char*)rgb;
+  lab2rgb(ptr,ptr+1,ptr+2,l,a,b);
+}
+
+void xyz2pix(void* rgb, double x, double y, double z) {
+  unsigned char* ptr = (unsigned char*)rgb;
+  xyz2rgb(ptr,ptr+1,ptr+2,x,y,z);
+}
+
+/* Convert from a qualitative parameter l and a quantitative parameter c to a 24-bit pixel */
+void cl2pix(void* rgb, double c, double l) {
+  unsigned char* ptr = (unsigned char*)rgb;
+  double L = l*0.61+0.09; //L of L*a*b*
+  double r = l*0.311+0.125; //chroma
+  double angle = TAU/6.0-c*TAU;
+  double a = sin(angle)*r;
+  double b = cos(angle)*r;
+  lab2rgb(ptr,ptr+1,ptr+2,L,a,b);
+}
+
+void hsv2pix(void* rgb, double h, double s, double v) {
+  double c = v*s;
+  double r,g,b;
+  h*=6;
+  if(h<1) {
+    r = c; g = c*h; b = 0;
+  } else if(h<2) {
+    r = c*(2-h); g = c; b = 0;
+  } else if(h<3) {
+    r = 0; g = c; b = c*(h-2);
+  } else if(h<4) {
+    r = 0; g = c*(4-h); b = c;
+  } else if(h<5) {
+    r = c*(h-4); g = 0; b = c;
+  } else {
+    r = c; g = 0; b = c*(6-h);
+  }
+  double m = v-c;
+  r+=m; g+=m; b+=m;
+  unsigned char* pix = (unsigned char*)rgb;
+  *(pix+0) = (unsigned char)(255.0*r);
+  *(pix+1) = (unsigned char)(255.0*g);
+  *(pix+2) = (unsigned char)(255.0*b);
+}
+
+void export_png(char* filename, int width, int height, int bpc, void* data) {
+  FILE* fp = fopen(filename,"wb");
+  png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING,NULL,NULL,NULL);
+  png_infop info = png_create_info_struct(png);
+  png_init_io(png,fp);
+  png_byte color_type, bit_depth;
+  int bpp;
+  switch(bpc) {
+    case 9:  bpp=8;  /* Gray:   8+1 */ bit_depth=8; color_type=PNG_COLOR_TYPE_GRAY; break;
+    case 17: bpp=16; /* Gray:  16+1 */ bit_depth=16; color_type=PNG_COLOR_TYPE_GRAY; break;
+    case 10: bpp=16; /* GA:     8+2 */ bit_depth=8; color_type=PNG_COLOR_TYPE_GRAY_ALPHA; break;
+    case 11: bpp=24; /* Color:  8+3 */ bit_depth=8; color_type=PNG_COLOR_TYPE_RGB; break;
+    case 12: bpp=32; /* RGBA:   8+4 */ bit_depth=8; color_type=PNG_COLOR_TYPE_RGB_ALPHA; break;
+    case 18: bpp=32; /* GA:    16+2 */ bit_depth=16; color_type=PNG_COLOR_TYPE_GRAY_ALPHA; break;
+    case 19: bpp=48; /* RGB:   16+3 */ bit_depth=16; color_type=PNG_COLOR_TYPE_RGB; break;
+    case 20: bpp=64; /* RGBA:  16+4 */ bit_depth=16; color_type=PNG_COLOR_TYPE_RGB_ALPHA; break;
+  }
+  png_set_IHDR(png, info, width, height, bit_depth, color_type, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+  bpp/=8;
+  png_bytep* rows = malloc(height*sizeof(png_bytep));
+  int i;
+  for(i=0;i<height;i++) rows[i]=data+bpp*width*i;
+  png_set_rows(png, info, rows);
+  png_write_png(png,info,PNG_TRANSFORM_SWAP_ENDIAN,NULL);
+  free(rows);
+  fclose(fp);
 }
 
 void enpq(struct pq* q, int x, int y) {

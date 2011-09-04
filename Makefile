@@ -29,7 +29,7 @@ bin/dimensions: Makefile $(DIMENSIONS_C) $(DIMENSIONS_H)
 	gcc $(OPTOPTS) $(DIMENSIONS_C) $(GCCOPTS) $(DIMENSIONS_O)
 
 bin/svd: Makefile $(SVD_C) $(SVD_H)
-	gcc $(OPTOPTS) $(SVD_C) $(GCCOPTS) $(SVD_O)
+	gcc $(DEBUGOPTS) $(SVD_C) $(GCCOPTS) $(SVD_O)
 
 bin/sampler: Makefile $(SAMPLER_C) $(SAMPLER_H)
 	gcc $(OPTOPTS) $(SAMPLER_C) $(GCCOPTS) $(SAMPLER_O)
