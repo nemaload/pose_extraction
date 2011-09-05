@@ -10,6 +10,8 @@
   M(1) \
   M(0)
 
+extern int _DebugColors;
+
 /*
  * This struct is passed around by most of the functions,
  * and besides containing a pointer to the region of address space
@@ -77,6 +79,7 @@ void lab2rgb(unsigned char* R, unsigned char* G, unsigned char* B, double l, dou
 void lab2pix(void* rgb, double l, double a, double b);
 void xyz2pix(void* rgb, double x, double y, double z);
 void cl2pix(void* rgb, double c, double l);
+void csl2pix(void* rgb, double c, double s, double l);
 void hsv2pix(void* rgb, double h, double s, double v);
 void export_png(char* filename, int width, int height, int bpc, void* data);
 

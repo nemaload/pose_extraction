@@ -15,6 +15,8 @@
 #include <png.h>
 #define RANDOM_SEED
 
+int _DebugColors = 0;
+
 /*
  * Taking care of that pesky random-number generator.
  * There's a compile-time flag here to use a random seed,
@@ -299,6 +301,7 @@ void lab2xyz(double* x, double* y, double* z, double l, double a, double b) {
   *y = ill[1] * finv(sl);
   *x = ill[0] * finv(sl + (a/5.0));
   *z = ill[2] * finv(sl - (b/2.0));
+  if(_DebugColors) printf("lab2xyz: [ %lf , %lf , %lf ] -> [ %lf , %lf, %lf ]\n",l,a,b,*x,*y,*z);
 }
 
 /* Convert from XYZ doubles to sRGB bytes */
@@ -306,13 +309,13 @@ void xyz2rgb(unsigned char* r, unsigned char* g, unsigned char* b, double x, dou
   double rl =  3.2406*x - 1.5372*y - 0.4986*z;
   double gl = -0.9689*x + 1.8758*y + 0.0415*z;
   double bl =  0.0557*x - 0.2040*y + 1.0570*z;
-  int clip = (rl < 0.0 || rl > 1.0 || gl < 0.0 || gl > 1.0 || bl < 0.0 || bl > 1.0);
+  int clip = (rl < 0.001 || rl > 0.999 || gl < 0.001 || gl > 0.999 || bl < 0.001 || bl > 0.999);
   if(clip) {
-    rl = (rl<0.0)?0.0:((rl>1.0)?1.0:rl);
-    gl = (gl<0.0)?0.0:((gl>1.0)?1.0:gl);
-    bl = (bl<0.0)?0.0:((bl>1.0)?1.0:bl);
+    rl = (rl<0.001)?0.0:((rl>0.999)?1.0:rl);
+    gl = (gl<0.001)?0.0:((gl>0.999)?1.0:gl);
+    bl = (bl<0.001)?0.0:((bl>0.999)?1.0:bl);
   }
-  if(clip) {rl=1.0;gl=bl=0.0;}
+  //if(clip) {rl=1.0;gl=bl=0.0;}
   double correct(double cl) {
     double a = 0.055;
     return (cl<=0.0031308)?(12.92*cl):((1+a)*pow(cl,1/2.4)-a);
@@ -320,6 +323,7 @@ void xyz2rgb(unsigned char* r, unsigned char* g, unsigned char* b, double x, dou
   *r = (unsigned char)(255.0*correct(rl));
   *g = (unsigned char)(255.0*correct(gl));
   *b = (unsigned char)(255.0*correct(bl));
+  if(_DebugColors) printf("xyz2rgb: [ %lf , %lf , %lf ] -> [ %hhu , %hhu, %hhu ]\n",x,y,z,*r,*g,*b);
 }
 
 /* Convert from LAB doubles to sRGB bytes */
@@ -339,14 +343,31 @@ void xyz2pix(void* rgb, double x, double y, double z) {
   xyz2rgb(ptr,ptr+1,ptr+2,x,y,z);
 }
 
+void lrl(double* L, double* r, double l) {
+  *L = l*0.61+0.09;   //L of L*a*b*
+  *r = l*0.301+0.125; //chroma
+}
+
 /* Convert from a qualitative parameter l and a quantitative parameter c to a 24-bit pixel */
 void cl2pix(void* rgb, double c, double l) {
   unsigned char* ptr = (unsigned char*)rgb;
-  double L = l*0.61+0.09; //L of L*a*b*
-  double r = l*0.311+0.125; //chroma
+  double L,r;
+  lrl(&L,&r,l);
   double angle = TAU/6.0-c*TAU;
   double a = sin(angle)*r;
   double b = cos(angle)*r;
+  lab2rgb(ptr,ptr+1,ptr+2,L,a,b);
+}
+
+void csl2pix(void* rgb, double c, double s, double l) {
+  unsigned char* ptr = (unsigned char*)rgb;
+  double L,r;
+  L=l*0.61+0.09;
+  r=0.426*s;
+  double angle = TAU/6.0-c*TAU;
+  double a = sin(angle)*r;
+  double b = cos(angle)*r;
+  if(_DebugColors) printf("csl2pix: [ %lf , %lf , %lf ] -> L = %lf , r = %lf , angle = %lf , cos(angle)=%lf , a = %lf , b = %lf\n",c,s,l,L,r,angle,cos(angle),a,b);
   lab2rgb(ptr,ptr+1,ptr+2,L,a,b);
 }
 

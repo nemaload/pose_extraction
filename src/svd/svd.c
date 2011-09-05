@@ -21,6 +21,7 @@
   ARG(ARG_INT0,colors,"c","colors","the number of SVD axes to colorize",20) \
   ARG(ARG_INT0,plot_height,"h","plot-height","height of the plot in each shape layer",50) \
   ARG(ARG_LIT0,no_recons,"r","no-recons","don't bother writing the output image",0) \
+  ARG(ARG_LIT0,svd_file,"x","svd-file","check for SVD file; use if exists, write if not",0) \
   ARG(ARG_INT0,shapes,"s","shapes","how many shapes to guess",100) \
   ARG(ARG_DBL0,scale,"f","scale","the scale factor on SVD output interpretation",60.0) \
   ARG(ARG_DBL0,thresh,"t","threshhold","the similarity threshhold for filling shapes",0.6) \
@@ -32,7 +33,7 @@
  */
 void init(image_t* image, const args_t* args) {
   init_rng(image);
-  fesetround(FE_DOWNWARD);
+  //fesetround(FE_DOWNWARD);
   image->width = args->input_width;
   image->height = args->input_height;
   image->depth = image->length / image->width / image->height;
@@ -43,10 +44,12 @@ int main(int argc, char** argv) {
   image_t input;
   int length;
   int i,j,k;
+  point_t point; int *p = point.p;
+  SVDRec result;
 
   parse_args(argc, argv, &args);
 
-  
+  /*
   step_start("L*a*b* test");
   unsigned char* lab_test = malloc(args.input_width*args.input_width*3);
   for(i=0;i<args.input_width;i++) {
@@ -100,51 +103,57 @@ int main(int argc, char** argv) {
 
   init(&input, &args);
 
-  step_start("prepping SVD");
-  DMat A = svdNewDMat(input.width*input.height,input.depth);
-  point_t point; int *p = point.p;
-  for(p[0]=0;p[0]<input.depth;p[0]++) {
-    const int col = p[0];
-    for(p[1]=0;p[1]<input.height;p[1]++) {
-      for(p[2]=0;p[2]<input.width;p[2]++) {
-        const int row = p[1]*input.width+p[2];
-        A->value[row][col]=(double)pixel_get(&input,point);
-      }
-    }
-    
+  double *Ut, *Vt, *S;
+  char* svdfname;
+  FILE* svdf;
+  if(args.svd_file) {
+    svdfname = malloc(strlen(args.input_filename)+strlen(".svd")+1);
+    strcpy(svdfname,args.input_filename);
+    strcat(svdfname,".svd");
   }
-  step_end();
-  half_step_start("converting DMat to SMat");
-  SMat As = svdConvertDtoS(A);
-  step_end();
-
-  step_start("executing SVD");
-  SVDRec result = svdLAS2A(As,args.dimensions);
-  step_end();
-
-  /*
-  step_start("reconstructing image");
-  if(args.no_recons) {
-    printf("--skipping--\n");
+  if(args.svd_file && (svdf=fopen(svdfname,"r"))) {
+    Ut = malloc(sizeof(double)*args.dimensions*input.width*input.height);
+    Vt = malloc(sizeof(double)*args.dimensions*input.width*input.height);
+    S = malloc(sizeof(double)*args.dimensions);
+    fread(Ut,sizeof(double),args.dimensions*input.width*input.height,svdf);
+    fread(Vt,sizeof(double),args.dimensions*input.width*input.height,svdf);
+    fread(S,sizeof(double),args.dimensions,svdf);
   } else {
-    for(p[1]=0;p[1]<input.height;p[1]++) {
-      for(p[2]=0;p[2]<input.width;p[2]++) {
-        const int row = p[1]*input.width+p[2];
-        for(p[0]=0;p[0]<input.depth;p[0]++) {
-          const int col = p[0];
-          double v = 0.0;
-          unsigned short *pixel = (&(output[p[0]*input.width*input.height+p[1]*input.width+p[2]]));
-          for(i=0;i<args.dimensions;i++) {
-            v+=(result->S[i])*(result->Ut->value[i][row])*(result->Vt->value[i][col]);
-          }
-          *pixel = (unsigned short)v;
+
+    step_start("prepping SVD");
+    DMat A = svdNewDMat(input.width*input.height,input.depth);
+    for(p[0]=0;p[0]<input.depth;p[0]++) {
+      const int col = p[0];
+      for(p[1]=0;p[1]<input.height;p[1]++) {
+        for(p[2]=0;p[2]<input.width;p[2]++) {
+          const int row = p[1]*input.width+p[2];
+          A->value[row][col]=(double)pixel_get(&input,point);
         }
       }
+      
+    }
+    step_end();
+    half_step_start("converting DMat to SMat");
+    SMat As = svdConvertDtoS(A);
+    step_end();
+
+    step_start("executing SVD");
+    result = svdLAS2A(As,args.dimensions);
+    step_end();
+
+    Ut = result->Ut->value[0];
+    Vt = result->Vt->value[0];
+    S = result->S;
+    
+    if(args.svd_file) {
+      svdf=fopen(svdfname,"w");
+      fwrite(Ut,sizeof(double),args.dimensions*input.width*input.height,svdf);
+      fwrite(Vt,sizeof(double),args.dimensions*input.width*input.height,svdf);
+      fwrite(S,sizeof(double),args.dimensions,svdf);
+      fclose(svdf);
     }
   }
-  step_end();
-  
-
+  /*
   step_start("reconstructing shapes");
   unsigned short* shapes = open_mmapped_file_write(sfilename,input.width*input.height*args.dimensions*2);
   for(p[1]=0;p[1]<input.height;p[1]++) {
@@ -326,12 +335,10 @@ int main(int argc, char** argv) {
   mkdir("recons",0777);
   mkdir("recons_c",0777);
   mkdir("cell",0777);
-  copy_file("index.html","../../src/svd/index.html");
+  //copy_file("index.html","../../src/svd/index.html");
   step_end();
 
 
-  step_start("writing raw/ pngs");
-  chdir("raw");
   int pngfn_l = strlen("0000.png")+1;
   char* pngfn = malloc(pngfn_l);
 
@@ -343,8 +350,12 @@ int main(int argc, char** argv) {
     }
   }
   double scale = max/255.0;
+  printf("max: %lf\n", max);
 
-  unsigned char* pngbuf = malloc(input.width*input.height);
+  unsigned char* pngbuf = malloc(input.width*input.height*4);
+
+  step_start("writing raw/ pngs");
+  chdir("raw");
   for(k=0;k<input.depth;k++) {
     for(j=0;j<input.height;j++) {
       for(i=0;i<input.width;i++) {
@@ -364,7 +375,74 @@ int main(int argc, char** argv) {
   step_end();
 
 
+  step_start("choosing a color for each pixel");
+  //choose a vector for each signal
+  double* sigvects = malloc(sizeof(double)*args.colors*2);
+  for(i=1;i<args.colors;i++) {
+    sigvects[i*2]   = gsl_rng_uniform_pos(input.r);
+    sigvects[i*2+1] = gsl_rng_uniform_pos(input.r);
+  }
+  double* pixcolors = malloc(sizeof(double)*input.height*input.width*2);
+  for(p[1]=0;p[1]<input.height;p[1]++) {
+    for(p[2]=0;p[2]<input.width;p[2]++) {
+      const int row = p[1]*input.width+p[2];
+      double x=0.0,y=0.0;
+      pixcolors[row*2] = pixcolors[row*2+1] = 0.0;
+      for(p[0]=1;p[0]<args.colors;p[0]++) {
+        const int col = p[0];
+        double v = (Ut[col*input.width*input.height+row])*(S[col]);
+        v/=(50*args.colors);
+        pixcolors[row*2+1] += abs(v);
+        x+=v*sigvects[col*2];
+        y+=v*sigvects[col*2+1];
+      }
+      pixcolors[row*2] = (atan2(y,x)/TAU)+1/2.0;
+      if(isnan(pixcolors[row*2])) pixcolors[row*2]=0.0;
+    }
+  }
+
+  double avg_sat=gsl_stats_mean(pixcolors+1,2,input.width*input.height);
+  double sd_sat=gsl_stats_sd_m(pixcolors+1,2,input.width*input.height,avg_sat);
+  double scale_sat = avg_sat+2*sd_sat;
+  for(i=0;i<input.height*input.width;i++) {
+    pixcolors[i*2+1] /= scale_sat;
+    if(pixcolors[i*2+1]>0.999) pixcolors[i*2+1]=0.999;
+  }
+
+  double avg_lum;
+  double var_lum;
+  int n_lum;
+  for(i=0;i<input.depth*input.height*input.width;i++) {
+    double x = (double)(((unsigned short*)input.data)[i]);
+    n_lum++;
+    double delta = x-avg_lum;
+    avg_lum += delta/n_lum;
+    var_lum += delta*(x - avg_lum);
+  }
+  var_lum /= n_lum-1;
+  double sd_lum = sqrt(var_lum);
+  double scale_lum = avg_lum+3*sd_lum;
+  step_end();
+  
   step_start("writing raw_c/ pngs");
+  chdir("raw_c");
+  for(k=0;k<input.depth;k++) {
+    for(j=0;j<input.height;j++) {
+      for(i=0;i<input.width;i++) {
+        int n = i+j*input.width;
+        unsigned short *pixel = (unsigned short*)(input.data+2*(n+k*input.width*input.height));
+        double v = ((double)(*pixel))/scale_lum;
+        if(v>1.0) v=1.0;
+        else if(v<0.0) v=0.0;
+        csl2pix(pngbuf+3*n,pixcolors[n*2],pixcolors[n*2+1],v);
+      }
+    }
+    printf(".");
+    snprintf(pngfn,pngfn_l,"%04d.png",k);
+    export_png(pngfn,input.width,input.height,8+3,pngbuf);
+  }
+  chdir("..");
+
 
   step_end();
 
