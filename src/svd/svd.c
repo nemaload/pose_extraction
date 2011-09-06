@@ -3,6 +3,8 @@
 #include <string.h>
 #include <stdint.h>
 #include <fenv.h>
+#include <float.h>
+#include <limits.h>
 #include <math.h>
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_statistics.h>
@@ -18,13 +20,13 @@
   ARG(ARG_INT1,input_height,"h","height","the height of each input image slice",-1) \
   ARG(ARG_FIL0,output_filename,"o","output","name of the output folder [default: truncated input]","") \
   ARG(ARG_INT0,dimensions,"d","dim","the number of SVD axes to extract",100) \
-  ARG(ARG_INT0,colors,"c","colors","the number of SVD axes to colorize",20) \
+  ARG(ARG_INT0,colors,"c","colors","the number of SVD axes to use",20) \
   ARG(ARG_INT0,plot_height,"h","plot-height","height of the plot in each shape layer",50) \
   ARG(ARG_LIT0,no_recons,"r","no-recons","don't bother writing the output image",0) \
   ARG(ARG_LIT0,svd_file,"x","svd-file","check for SVD file; use if exists, write if not",0) \
-  ARG(ARG_INT0,shapes,"s","shapes","how many shapes to guess",100) \
+  ARG(ARG_INT0,masks,"m","masks","how many masks to guess",100) \
   ARG(ARG_DBL0,scale,"f","scale","the scale factor on SVD output interpretation",60.0) \
-  ARG(ARG_DBL0,thresh,"t","threshhold","the similarity threshhold for filling shapes",0.6) \
+  ARG(ARG_DBL0,thresh,"t","threshhold","the similarity threshhold for filling masks",0.6) \
 
 #include "../common/argboiler.h"
 
@@ -103,7 +105,7 @@ int main(int argc, char** argv) {
 
   init(&input, &args);
 
-  double *Ut, *Vt, *S;
+  double *U, *Vt, *S;
   char* svdfname;
   FILE* svdf;
   if(args.svd_file) {
@@ -112,10 +114,10 @@ int main(int argc, char** argv) {
     strcat(svdfname,".svd");
   }
   if(args.svd_file && (svdf=fopen(svdfname,"r"))) {
-    Ut = malloc(sizeof(double)*args.dimensions*input.width*input.height);
+    U = malloc(sizeof(double)*args.dimensions*input.width*input.height);
     Vt = malloc(sizeof(double)*args.dimensions*input.width*input.height);
     S = malloc(sizeof(double)*args.dimensions);
-    fread(Ut,sizeof(double),args.dimensions*input.width*input.height,svdf);
+    fread(U,sizeof(double),args.dimensions*input.width*input.height,svdf);
     fread(Vt,sizeof(double),args.dimensions*input.width*input.height,svdf);
     fread(S,sizeof(double),args.dimensions,svdf);
   } else {
@@ -141,93 +143,43 @@ int main(int argc, char** argv) {
     result = svdLAS2A(As,args.dimensions);
     step_end();
 
-    Ut = result->Ut->value[0];
+    DMat UM = svdTransposeD(result->Ut);
+    U = UM->value[0];
     Vt = result->Vt->value[0];
     S = result->S;
     
     if(args.svd_file) {
       svdf=fopen(svdfname,"w");
-      fwrite(Ut,sizeof(double),args.dimensions*input.width*input.height,svdf);
+      fwrite(U,sizeof(double),args.dimensions*input.width*input.height,svdf);
       fwrite(Vt,sizeof(double),args.dimensions*input.width*input.height,svdf);
       fwrite(S,sizeof(double),args.dimensions,svdf);
       fclose(svdf);
     }
   }
-  /*
-  step_start("reconstructing shapes");
-  unsigned short* shapes = open_mmapped_file_write(sfilename,input.width*input.height*args.dimensions*2);
-  for(p[1]=0;p[1]<input.height;p[1]++) {
-    for(p[2]=0;p[2]<input.width;p[2]++) {
-      const int row = p[1]*input.width+p[2];
-      for(p[0]=0;p[0]<args.dimensions;p[0]++) {
-        const int col = p[0];
-        unsigned short *pixel = (&(shapes[p[0]*input.width*input.height+p[1]*input.width+p[2]]));
-        *pixel = (unsigned short)((result->Ut->value[col][row])*(result->S[col]));
-      }
-    }
-  }
-  step_end();
-  
 
-  DMat U = svdTransposeD(result->Ut);
   
-  step_start("coloring shapes");
-  unsigned char* shapes = open_mmapped_file_write(sfilename,input.width*input.height*3);
-  double* colors = malloc(args.colors*3*sizeof(double));
-  for(i=1;i<args.colors;i++) {
-    double r,g,b;
-    r=gsl_rng_uniform_pos(input.r);
-    g=gsl_rng_uniform_pos(input.r);
-    b=gsl_rng_uniform_pos(input.r);
-    //double y = 0.2126*r+0.7152*g+0.0722*b;
-    double y = 0.33*r+0.33*g+0.33*b;
-    double yc = 0.02/y;
-    r*=yc; g*=yc; b*=yc;
-    colors[i*3]=r;
-    colors[i*3+1]=g;
-    colors[i*3+2]=b;
-  }
-  printf("Assigned colors\b\n");
-  for(p[1]=0;p[1]<input.height;p[1]++) {
-    for(p[2]=0;p[2]<input.width;p[2]++) {
-      const int row = p[1]*input.width+p[2];
-      printf("Pixel %d,%d:",p[2],p[1]);
-      double r,g,b;
-      double* vec = &(U->value[row][1]);
-      r=gsl_stats_mean(vec,1,args.colors-1);
-      g=gsl_stats_sd_m(vec,1,args.colors-1,r);
-      b=g; r=g;
-      r*=args.scale;g*=args.scale;b*=args.scale;
-      if(r<0) r=0.0;
-      if(r>1) r=1.0;
-      if(g<0) g=0.0;
-      if(g>1) g=1.0;
-      if(b<0) b=0.0;
-      if(b>1) b=1.0;
-      unsigned char *pixel = (&(shapes[(p[1]*input.width+p[2])*3]));
-      printf(" %lf, %lf, %lf -> %d, %d, %d\n",r,g,b,(unsigned char)(r*255.0),(unsigned char)(g*255.0),(unsigned char)(b*255.0));
-      pixel[0]=(unsigned char)(r*255.0);
-      pixel[1]=(unsigned char)(g*255.0);
-      pixel[2]=(unsigned char)(b*255.0);
-    }
-  }
-  step_end();*/
-
-  /*
-  step_start("isolating shapes");
-  unsigned short* shapes = open_mmapped_file_write(sfilename,input.width*(input.height+args.plot_height)*args.shapes*2);
-  int* taken = calloc(input.width*input.height,sizeof(int));
-  for(j=0;j<args.shapes;j++) {
+  step_start("computing cell masks");
+  double* masks = malloc(input.width*input.height*args.masks*sizeof(double));
+  unsigned short maskbox[args.masks][2][2];
+  double* maskcomps = malloc(args.colors*args.masks*sizeof(double));
+  double* signal = malloc(input.depth*args.masks*sizeof(double));
+  int* taken = malloc(input.width*input.height*sizeof(int));
+  for(i=0;i<input.width*input.height;i++) taken[i]=0;
+  for(j=0;j<args.masks;j++) {
     double rn;
     int x,y,row;
     double* vec;
     double maxv=0.0;
+    double dot=0.0;
+    maskbox[j][0][0]=maskbox[j][1][0]=USHRT_MAX;
+    maskbox[j][0][1]=maskbox[j][1][1]=0;
+    for(i=0;i<input.width*input.height;i++) masks[j*input.width*input.height+i]=0.0;
     do {
       x=gsl_rng_uniform_int(input.r,input.width);
       y=gsl_rng_uniform_int(input.r,input.height);
       rn = gsl_rng_uniform(input.r)/args.scale;
       row = y*input.width+x;
-      vec = &(U->value[row][1]);
+      vec = &(U[row*args.dimensions+1]);
     } while(rn > gsl_stats_mean(vec,1,args.colors-1) || taken[y*input.width+x]);
     int test(int x, int y) {
       if(x>=input.width) return 0;
@@ -236,9 +188,9 @@ int main(int argc, char** argv) {
       if(y<0) return 0;
       int row = y*input.width+x;
       if(taken[row]==j+1) return 0;
-      double* tvec = &(U->value[row][1]);
-      double dot=0.0;
+      double* tvec = &(U[row*args.dimensions+1]);
       double norm=0.0;
+      dot=0.0;
       int i;
       for(i=0;i<args.colors-1;i++) {
         dot+=(tvec[i]*vec[i]);
@@ -254,60 +206,46 @@ int main(int argc, char** argv) {
     void act(int x, int y) {
       int row = y*input.width+x;
       taken[row]=j+1;
-      double* vec = &(U->value[row][1]);
-      unsigned short *pixel = (&(shapes[j*input.width*(input.height+args.plot_height)+y*input.width+x]));
-      double v = gsl_stats_mean(vec,1,args.colors-1)*args.scale;
+      double* vec = &(U[row*args.dimensions+1]);
+      double *pixel = (&(masks[j*input.width*input.height+y*input.width+x]));
+      double v = dot/args.colors;
       if(v<0) v=0.0; if(v>1) v=1.0;
       if(v>maxv) maxv=v;
-      *pixel = (unsigned short)(v*65535.0);
+      *pixel = v;
+      if(x < maskbox[j][0][0]) maskbox[j][0][0]=x;
+      if(x > maskbox[j][0][1]) maskbox[j][0][1]=x;
+      if(y < maskbox[j][1][0]) maskbox[j][1][0]=y;
+      if(y > maskbox[j][1][1]) maskbox[j][1][1]=y;
     }
     floodfill(x,y,test,act);
     if(maxv<0.01) {
       j--;
-      printf("retrying...\n");
+      printf("."); fflush(stdout);
     } else {
       //Make plot
-      int px,py;
-      double ttymin=100000000, ttymax=-100000000;
-      double* tty = malloc(sizeof(double)*input.width);
-      for(px=0;px<input.width;px++) {
-        double td = ((double)px/(double)input.width)*((double)input.depth);
-        int ti = (int)td;
-        if(ti<0) ti=0; if(ti>input.depth-1) ti=input.depth-1;
+      int t;
+      for(t=0;t<input.depth;t++) {
         int d;
-        tty[px]=0.0;
+        signal[input.depth*j+t]=0.0;
         for(d=1;d<args.colors;d++) {
-          tty[px]+=(result->S[d])*(U->value[row][d])*(result->Vt->value[d][ti]);
-        }
-        if(tty[px]<ttymin) ttymin=tty[px];
-        if(tty[px]>ttymax) ttymax=tty[px];
-      }
-      for(px=0;px<input.width;px++) {
-        int iy = (int)((tty[px]-ttymin)*(((double)args.plot_height)/(ttymax-ttymin)));
-        for(py=0;py<args.plot_height;py++) {
-          double v;
-          if(py == iy) {
-            v = 0.0;
-          } else {
-            v = 1.0;
-          }
-          unsigned short *pixel = (&(shapes[j*input.width*(input.height+args.plot_height)+(input.height+args.plot_height-1-iy)*input.width+px]));
-          *pixel = (unsigned short)(v*65535.0);
+          maskcomps[j*args.colors+d] = (S[d])*(U[row*args.dimensions+d]);
+          signal[input.depth*j+t]+=maskcomps[j*args.colors+d]*(Vt[d*input.depth+t]);
         }
       }
-      printf("==========================done with %d!\n",j);
+      printf(" %d ",j); fflush(stdout);
     }
   }
+  printf("\n\n");
   step_end();
-  */
+  
 
   step_start("creating directory structure");
-  const char* dirname;
+  const char* outdirname;
   if(args.output_filename[0]=='\0') {
-    dirname = strdup(args.input_filename);
-    *(strchrnul(dirname,'.'))='\0';
+    outdirname = strdup(args.input_filename);
+    *(strchrnul(outdirname,'.'))='\0';
   } else {
-    dirname = args.output_filename;
+    outdirname = args.output_filename;
   }
   /*
    * dirname/
@@ -328,86 +266,131 @@ int main(int argc, char** argv) {
    *       gray.png
    *       color.png
    */
-  mkdir(dirname,0777);
-  chdir(dirname);
+  mkdir(outdirname,0777);
+  chdir(outdirname);
   mkdir("raw",0777);
   mkdir("raw_c",0777);
   mkdir("recons",0777);
   mkdir("recons_c",0777);
   mkdir("cell",0777);
+  FILE *dimsfile = fopen("dims.json","w");
+  fprintf(dimsfile,"{width: %d, height: %d, time: %d, cells: %d}\n",input.width,input.height,input.height,args.masks);
+  fclose(dimsfile);
   //copy_file("index.html","../../src/svd/index.html");
   step_end();
 
-
-  int pngfn_l = strlen("0000.png")+1;
-  char* pngfn = malloc(pngfn_l);
-
-  //Find maximum point value to scale by.
-  double max=0.0;
-  for(i=0;i<input.depth*input.height*input.width;i++) {
-    if(max<((unsigned short*)input.data)[i]) {
-      max = (double)(((unsigned short*)input.data)[i]);
-    }
-  }
-  double scale = max/255.0;
-  printf("max: %lf\n", max);
-
-  unsigned char* pngbuf = malloc(input.width*input.height*4);
-
-  step_start("writing raw/ pngs");
-  chdir("raw");
-  for(k=0;k<input.depth;k++) {
-    for(j=0;j<input.height;j++) {
-      for(i=0;i<input.width;i++) {
-        unsigned short *pixel = (unsigned short*)(input.data+2*(i+j*input.width+k*input.width*input.height));
-        pngbuf[i+j*input.width]=(unsigned char)(((double)(*pixel))/scale);
-      }
-    }
-    snprintf(pngfn,pngfn_l,"%04d.png",k);
-    export_png(pngfn,input.width,input.height,8+1,pngbuf);
-  }
-  chdir("..");
-  step_end();
-
-
-  step_start("writing recons/ pngs");
-
-  step_end();
-
-
-  step_start("choosing a color for each pixel");
-  //choose a vector for each signal
-  double* sigvects = malloc(sizeof(double)*args.colors*2);
+  step_start("choosing a color scheme");
+  //choose a vector for each component
+  double* compvects = malloc(sizeof(double)*args.colors*2);
   for(i=1;i<args.colors;i++) {
-    sigvects[i*2]   = gsl_rng_uniform_pos(input.r);
-    sigvects[i*2+1] = gsl_rng_uniform_pos(input.r);
+    compvects[i*2]   = 2*gsl_rng_uniform_pos(input.r)-1.0;
+    compvects[i*2+1] = 2*gsl_rng_uniform_pos(input.r)-1.0;
   }
-  double* pixcolors = malloc(sizeof(double)*input.height*input.width*2);
+  //choose a color for each pixel
+  double* pixcolor = malloc(sizeof(double)*input.height*input.width*2);
   for(p[1]=0;p[1]<input.height;p[1]++) {
     for(p[2]=0;p[2]<input.width;p[2]++) {
       const int row = p[1]*input.width+p[2];
       double x=0.0,y=0.0;
-      pixcolors[row*2] = pixcolors[row*2+1] = 0.0;
+      pixcolor[row*2] = pixcolor[row*2+1] = 0.0;
       for(p[0]=1;p[0]<args.colors;p[0]++) {
         const int col = p[0];
-        double v = (Ut[col*input.width*input.height+row])*(S[col]);
-        v/=(50*args.colors);
-        pixcolors[row*2+1] += abs(v);
-        x+=v*sigvects[col*2];
-        y+=v*sigvects[col*2+1];
+        double v = (U[col+row*args.dimensions])*(S[col]);
+        pixcolor[row*2+1] += fabs(v);
+        x+=v*compvects[col*2];
+        y+=v*compvects[col*2+1];
       }
-      pixcolors[row*2] = (atan2(y,x)/TAU)+1/2.0;
-      if(isnan(pixcolors[row*2])) pixcolors[row*2]=0.0;
+      pixcolor[row*2] = (atan2(y,x)/TAU)+1/2.0;
+      if(isnan(pixcolor[row*2])) pixcolor[row*2]=0.0;
+    }
+  }
+  //choose a color for each mask
+  double* maskcolor = malloc(sizeof(double)*args.masks*2);
+  for(i=0;i<args.masks;i++) {
+    double x=0.0,y=0.0;
+    for(j=0;j<args.colors;j++) {
+      double v = maskcomps[i*args.colors+j];
+      v/=(50*args.colors);
+      maskcolor[i*2+1] += fabs(v);
+      x+=v*compvects[j*2];
+      y+=v*compvects[j*2+1];
+    }
+    maskcolor[i*2] = (atan2(y,x)/TAU)+1/2.0;
+    if(isnan(maskcolor[i*2])) maskcolor[i*2]=0.0;
+  }
+
+  double avg_mask_sat=gsl_stats_mean(maskcolor+1,2,args.masks);
+  double sd_mask_sat=gsl_stats_sd_m(maskcolor+1,2,args.masks,avg_mask_sat);
+  double scale_mask_sat = avg_mask_sat+3*sd_mask_sat;
+  for(i=0;i<args.masks;i++) {
+    maskcolor[i*2+1] /= scale_mask_sat;
+    if(maskcolor[i*2+1]>0.999) maskcolor[i*2+1]=0.999;
+  }
+
+  double avg_sat=gsl_stats_mean(pixcolor+1,2,input.width*input.height);
+  double sd_sat=gsl_stats_sd_m(pixcolor+1,2,input.width*input.height,avg_sat);
+  double scale_sat = avg_sat+3*sd_sat;
+  for(i=0;i<input.height*input.width;i++) {
+    pixcolor[i*2+1] /= scale_sat;
+    if(pixcolor[i*2+1]>0.999) pixcolor[i*2+1]=0.999;
+  }
+
+  double avg_mask, var_mask;
+  double min_mask=DBL_MAX, max_mask=-DBL_MAX;
+  int n_mask;
+  for(i=0;i<args.masks*input.width*input.height;i++) {
+    double x = masks[i];
+    if(x<min_mask) min_mask=x;
+    if(max_mask<x) max_mask=x;
+    n_mask++;
+    double delta = x-avg_mask;
+    avg_mask += delta/n_mask;
+    var_mask += delta*(x - avg_mask);
+  }
+  var_mask /= n_mask-1;
+  double sd_mask = sqrt(var_mask);
+  printf("avg_mask: %lf, sd_mask: %lf\n",avg_mask,sd_mask);
+  double scale_mask = max_mask-sd_mask;
+  double map_mask(double mask) {
+    return (mask-min_mask)/(scale_mask-min_mask);
+  }
+  for(i=0;i<args.masks*input.width*input.height;i++) {
+    masks[i]=map_mask(masks[i]);
+    //printf("masks[%d][%d]: %lf\n",i%input.depth,i/input.depth,map_mask(masks[i]));
+  }
+  for(i=0;i<args.masks;i++) {
+    max_mask=-DBL_MAX;
+    for(j=0;j<input.width*input.height;j++) {
+      double x = masks[i*input.width*input.height+j];
+      if(max_mask<x) max_mask=x;
+    }
+    for(j=0;j<input.width*input.height;j++) {
+      masks[i*input.width*input.height+j] /= max_mask;
     }
   }
 
-  double avg_sat=gsl_stats_mean(pixcolors+1,2,input.width*input.height);
-  double sd_sat=gsl_stats_sd_m(pixcolors+1,2,input.width*input.height,avg_sat);
-  double scale_sat = avg_sat+2*sd_sat;
-  for(i=0;i<input.height*input.width;i++) {
-    pixcolors[i*2+1] /= scale_sat;
-    if(pixcolors[i*2+1]>0.999) pixcolors[i*2+1]=0.999;
+  double avg_sig, var_sig;
+  double min_sig=DBL_MAX, max_sig=-DBL_MAX;
+  int n_sig;
+  for(i=0;i<args.masks*input.depth;i++) {
+    double x = signal[i];
+    if(x<min_sig) min_sig=x;
+    if(max_sig<x) max_sig=x;
+    n_sig++;
+    double delta = x-avg_sig;
+    avg_sig += delta/n_sig;
+    var_sig += delta*(x - avg_sig);
   }
+  var_sig /= n_sig-1;
+  double sd_sig = sqrt(var_sig);
+  printf("avg_sig: %lf, sd_sig: %lf\n",avg_sig,sd_sig);
+  double scale_sig = avg_sig;
+  double map_sig(double sig) {
+    return (sig-min_sig)/(scale_sig-min_sig);
+  }
+  /*for(i=0;i<args.masks*input.depth;i++) {
+    printf("signal[%d][%d]: %lf\n",i%input.depth,i/input.depth,map_sig(signal[i]));
+  }*/
 
   double avg_lum;
   double var_lum;
@@ -422,8 +405,43 @@ int main(int argc, char** argv) {
   var_lum /= n_lum-1;
   double sd_lum = sqrt(var_lum);
   double scale_lum = avg_lum+3*sd_lum;
+
+  int pngfn_l = strlen("0000.png")+1;
+  char* pngfn = malloc(pngfn_l);
+
+  //Find maximum point value to scale by.
+  double max=0.0;
+  for(i=0;i<input.depth*input.height*input.width;i++) {
+    if(max<((unsigned short*)input.data)[i]) {
+      max = (double)(((unsigned short*)input.data)[i]);
+    }
+  }
+  double scale = max/255.0;
+  printf("max point val: %lf\n", max);
+  printf("\n");
   step_end();
+
+  unsigned char* pngbuf = malloc(input.width*input.height*4);
+
+  /*
+  step_start("writing raw/ pngs");
+  chdir("raw");
+  for(k=0;k<input.depth;k++) {
+    for(j=0;j<input.height;j++) {
+      for(i=0;i<input.width;i++) {
+        unsigned short *pixel = (unsigned short*)(input.data+2*(i+j*input.width+k*input.width*input.height));
+        pngbuf[i+j*input.width]=(unsigned char)(((double)(*pixel))/scale);
+      }
+    }
+    snprintf(pngfn,pngfn_l,"%04d.png",k);
+    export_png(pngfn,input.width,input.height,8+1,pngbuf);
+  }
+  chdir("..");
+  step_end();
+  */
+
   
+  /*
   step_start("writing raw_c/ pngs");
   chdir("raw_c");
   for(k=0;k<input.depth;k++) {
@@ -434,36 +452,106 @@ int main(int argc, char** argv) {
         double v = ((double)(*pixel))/scale_lum;
         if(v>1.0) v=1.0;
         else if(v<0.0) v=0.0;
-        csl2pix(pngbuf+3*n,pixcolors[n*2],pixcolors[n*2+1],v);
+        csl2pix(pngbuf+3*n,pixcolor[n*2],pixcolor[n*2+1],v);
       }
     }
-    printf(".");
+    printf("."); fflush(stdout);
     snprintf(pngfn,pngfn_l,"%04d.png",k);
     export_png(pngfn,input.width,input.height,8+3,pngbuf);
   }
   chdir("..");
+  step_end();
+  */
+
+  step_start("outputting cell info");
+  chdir("cell");
+  const int dirname_l=4;
+  char dirname[dirname_l+1];
+  for(k=0;k<args.masks;k++) {
+    snprintf(dirname,dirname_l+1,"%04d",k);
+    mkdir(dirname);
+    chdir(dirname);
+
+    FILE* bb_json = fopen("bb.json","w");
+    fprintf(bb_json,"{xmin: %d, xmax: %d, ymin: %d, ymax: %d}\n",maskbox[k][0][0],maskbox[k][0][1],maskbox[k][1][0],maskbox[k][1][1]);
+    fclose(bb_json);
+
+    FILE* signal_json = fopen("signal.json","w");
+    fprintf(signal_json,"[\n");
+    for(j=0;j<input.depth;j++) {
+      fprintf(signal_json,(j==input.depth-1)?"%lf\n":"%lf,\n",map_sig(signal[input.depth*k+j]));
+    }
+    fprintf(signal_json,"]\n");
+    fclose(signal_json);
+
+    for(j=0;j<input.height;j++) {
+      for(i=0;i<input.width;i++) {
+        int n=i+j*input.width;
+        csl2pix(pngbuf+3*n,maskcolor[k*2],maskcolor[k*2+1],masks[n+k*input.height*input.width]);
+      }
+    }
+    printf("."); fflush(stdout);
+    export_png("color.png",input.width,input.height,8+3,pngbuf);
+
+    for(j=0;j<input.height;j++) {
+      for(i=0;i<input.width;i++) {
+        int n=i+j*input.width;
+        csl2pix(pngbuf+3*n,0.0,0.0,masks[n+k*input.height*input.width]);
+      }
+    }
+    printf("."); fflush(stdout);
+    export_png("gray.png",input.width,input.height,8+3,pngbuf);
+
+    chdir("..");
+  }
+  chdir("..");
+  step_end();
 
 
+  step_start("writing recons/ pngs");
   step_end();
 
 
   step_start("writing recons_c/ pngs");
-
-  step_end();
-
-  
-  step_start("making cell/ directories");
-
-  step_end();
-
-
-  step_start("writing cell/ JSON");
-
-  step_end();
-
-
-  step_start("writing cell/ pngs");
-
+  chdir("recons_c");
+  printf("allocing\n");
+  double *recons = malloc(input.depth*input.height*input.width*3*sizeof(double));
+#define RECONS(k,j,i,c) recons[k*input.height*input.width*3+j*input.width*3+i*3+c]
+  int m;
+  printf("starting loop\n");
+  for(i=maskbox[m][0][0];i<=maskbox[m][0][1];i++) {
+    for(j=maskbox[m][1][0];j<=maskbox[m][1][1];j++) {
+      for(k=0;k<input.depth;k++) {
+        RECONS(k,j,i,0)=0.0;
+        RECONS(k,j,i,1)=0.0;
+        RECONS(k,j,i,2)=0.0;
+      }
+    }
+  }
+  for(m=0;m<args.masks;m++) {
+    for(i=maskbox[m][0][0];i<=maskbox[m][0][1];i++) {
+      for(j=maskbox[m][1][0];j<=maskbox[m][1][1];j++) {
+        for(k=0;k<input.depth;k++) {
+          double x,y,z;
+          csl2xyz(&x,&y,&z,maskcolor[m*2],maskcolor[m*2+1],map_sig(signal[m*input.depth+k])*masks[m*input.width*input.height+j*input.width+i]);
+          RECONS(k,j,i,0)+=x;
+          RECONS(k,j,i,1)+=y;
+          RECONS(k,j,i,2)+=z;
+        }
+      }
+    }
+  }
+  for(k=0;k<input.depth;k++) {
+    for(j=0;j<input.height;j++) {
+      for(i=0;i<input.width;i++) {
+        xyz2pix(pngbuf+3*(i+j*input.width),RECONS(k,j,i,0),RECONS(k,j,i,1),RECONS(k,j,i,2));
+      }
+    }
+    printf("."); fflush(stdout);
+    snprintf(pngfn,pngfn_l,"%04d.png",k);
+    export_png(pngfn,input.width,input.height,8+3,pngbuf);
+  }
+  chdir("..");
   step_end();
 
   return 0;

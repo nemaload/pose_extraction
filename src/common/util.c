@@ -344,7 +344,7 @@ void xyz2pix(void* rgb, double x, double y, double z) {
 }
 
 void lrl(double* L, double* r, double l) {
-  *L = l*0.61+0.09;   //L of L*a*b*
+  *L = l*0.7;   //L of L*a*b*
   *r = l*0.301+0.125; //chroma
 }
 
@@ -359,16 +359,26 @@ void cl2pix(void* rgb, double c, double l) {
   lab2rgb(ptr,ptr+1,ptr+2,L,a,b);
 }
 
-void csl2pix(void* rgb, double c, double s, double l) {
-  unsigned char* ptr = (unsigned char*)rgb;
-  double L,r;
-  L=l*0.61+0.09;
+void csl2lab(double* L, double* a, double* b, double c, double s, double l) {
+  double r;
+  *L=l*0.7;
   r=0.426*s;
   double angle = TAU/6.0-c*TAU;
-  double a = sin(angle)*r;
-  double b = cos(angle)*r;
+  *a = sin(angle)*r;
+  *b = cos(angle)*r;
   if(_DebugColors) printf("csl2pix: [ %lf , %lf , %lf ] -> L = %lf , r = %lf , angle = %lf , cos(angle)=%lf , a = %lf , b = %lf\n",c,s,l,L,r,angle,cos(angle),a,b);
-  lab2rgb(ptr,ptr+1,ptr+2,L,a,b);
+}
+
+void csl2xyz(double *x, double *y, double *z, double c, double s, double l) {
+  double L, a, b;
+  csl2lab(&L,&a,&b,c,s,l);
+  lab2xyz(x,y,z,L,a,b);
+}
+
+void csl2pix(void* rgb, double c, double s, double l) {
+  double L, a, b;
+  csl2lab(&L,&a,&b,c,s,l);
+  lab2pix(rgb,L,a,b);
 }
 
 void hsv2pix(void* rgb, double h, double s, double v) {
