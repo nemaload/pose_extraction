@@ -84,6 +84,7 @@ void init(image_t* image, const args_t* args) {
   image->width = args->input_width;
   image->height = args->input_height;
   compute_depth(image);
+  printf("l %d w %d h %d %d\n", image->length, image->width, image->height, image->depth);
 }
 
 #include "initial_guess.c"
