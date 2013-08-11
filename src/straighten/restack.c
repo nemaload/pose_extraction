@@ -90,7 +90,10 @@ void restack_image(image_t* dst, const image_t* src, const args_t* args, dpoint_
   }
   if(args->output_slice==-1) {
     sh.three_d_output=1;
-    dst->depth = (src->depth/2-1)*2;
+    if (src->depth > 1)
+      dst->depth = (src->depth/2-1)*2;
+    else
+      dst->depth = src->depth;
     //TODO: output depth option?
     printf("Output depth (same as input depth): %d\n",dst->depth);
   } else {
