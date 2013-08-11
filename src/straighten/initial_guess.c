@@ -4,7 +4,7 @@
  * but to avoid actually reading in all that data, we take a random
  * sample first.
  *
- * OBSOLETED by rejection sampling
+ * Not used if rejection sampling enabled
  */
 void compute_sd(const image_t* image, int sample_size, double* mean, double* sd) {
   unsigned short* sample;
@@ -36,7 +36,7 @@ point_t* sample_bright_points(const image_t* image, int n) {
   int i=0;
   while(i<n) {
     p = random_point(image);
-    if(pixel_get(image,p) > gsl_rng_uniform_int(image->r,1<<16)) {
+    if(pixel_get(image,p) > isnan(image->threshold) ? gsl_rng_uniform_int(image->r,1<<16) : image->threshold) {
       list[i++]=p;
       progress(i,n,"brights");
     }

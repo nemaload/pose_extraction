@@ -231,7 +231,7 @@ int refine_backbone(const image_t* image, point_t* sample, const args_t* args, d
     G2_DRAW_BACKBONE
 #endif
 
-    replace_in_sample(image,sample,args->refine_refresh_size,args->refine_sample_size,image->threshhold);
+    replace_in_sample(image,sample,args->refine_refresh_size,args->refine_sample_size);
 
     memset(dh_str,32,args->delta_history+1);
     memset(dh_str,'=',delta_history);

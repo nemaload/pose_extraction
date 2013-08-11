@@ -68,6 +68,7 @@ static const int automatic=-1;
   ARG(ARG_INT0,output_height,NULL,"out-height","the height of the output image",automatic) \
   ARG(ARG_INT0,output_extension,NULL,"out-extra","how many pixels on either edge of the backbone to include (head and tail)",automatic) \
   ARG(ARG_INT0,output_slice,NULL,"out-slice","output a 2D slice at the specified depth",automatic) \
+  ARG(ARG_LIT0,use_rejsampling,NULL,"rejection-sampling","use rejection sampling instead of brightness-based static threshold",0) \
 
 #include "../common/argboiler.h"
 
@@ -128,8 +129,6 @@ dpoint_t* load_spline(const char* filename, int* n) {
 int main(int argc, char** argv) {
   args_t args;
   image_t input;
-  double mean;
-  double sd;
   point_t* w;
   double* distances;
   int* mst;
@@ -164,7 +163,15 @@ int main(int argc, char** argv) {
   
   if(!args.use_spline[0]) {
     step_start("computing mean & s.d.");
-      printf("rejection sample instead!\n");
+      if (args.use_rejsampling) {
+        printf("rejection sample instead!\n");
+        input.threshold = NAN;
+      } else {
+        double mean, sd;
+        compute_sd(&input, args.mst_sample_size, &mean, &sd);
+        input.threshold = mean + sd * args.thresh_sds;
+        printf("mean %f sd %f threshold %f\n", mean, sd, input.threshold);
+      }
     step_end();
 
     int refine_success=0;
@@ -192,7 +199,7 @@ int main(int argc, char** argv) {
       step_end();
 
       half_step_start("sampling for E_image");
-        refine_sample = perform_sample(&input,args.refine_sample_size,input.threshhold);
+        refine_sample = perform_sample(&input, args.refine_sample_size);
       step_end();
 
       step_start("Refining backbone");

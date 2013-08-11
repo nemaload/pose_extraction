@@ -28,6 +28,7 @@ typedef struct {
   int length;
   void* data;
   gsl_rng* r;
+  double threshold;
 } image_t;
 
 typedef struct {
