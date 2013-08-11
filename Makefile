@@ -13,7 +13,7 @@ SAMPLER_O=-o bin/sampler
 DIMENSIONS_C=src/dimensions/dimensions.c src/common/util.c src/common/debug.c
 DIMENSIONS_H=src/common/debug.h src/common/util.h src/common/argboiler.h
 DIMENSIONS_O=-o bin/dimensions
-GCCOPTS=-lg2 -lgd -lm -lX11 -lXext -largtable2 -lgsl -lgslcblas -lrt -lfftw3 -ltiff -lpng -lpq -lSDL /usr/lib/svdlibc/libsvd.a
+GCCOPTS=-Wall -lg2 -lm -lX11 -lXext -largtable2 -lgsl -lgslcblas -lrt -lfftw3 -ltiff -lpng -lSDL #-lgd -lpq /usr/lib/svdlibc/libsvd.a
 DEBUGOPTS=-DNO_PROGRESS_BARS -g -O3
 OPTOPTS=-mtune=native -march=native -O3 -DGSL_RANGE_CHECK_OFF
 
