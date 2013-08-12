@@ -36,7 +36,7 @@ point_t* sample_bright_points(const image_t* image, int n) {
   int i=0;
   while(i<n) {
     p = random_point(image);
-    if(pixel_get(image,p) > isnan(image->threshold) ? gsl_rng_uniform_int(image->r,1<<16) : image->threshold) {
+    if(pixel_get(image,p) > (isnan(image->threshold) ? gsl_rng_uniform_int(image->r,1<<16) : image->threshold)) {
       list[i++]=p;
       progress(i,n,"brights");
     }
