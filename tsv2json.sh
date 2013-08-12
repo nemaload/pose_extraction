@@ -11,7 +11,9 @@ elif [ -n "$1" ]; then
 fi
 
 echo '{"bbpoints":['
+delim=""
 while read z y x; do
-	echo "[$x,$y,$z],"
+	echo " $delim[$x,$y,$z]"
+	delim=,
 done
 echo ']}'
