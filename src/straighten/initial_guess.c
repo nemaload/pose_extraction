@@ -49,6 +49,23 @@ point_t* sample_bright_points(const image_t* image, int n) {
  * Compute the distances between all the points sampled in Step 2.
  */
 
+void display_points(point_t* list, int n, const image_t *image, const args_t *args) {
+#ifdef X11
+#define G2_TRANSFORMcd(x) g2,\
+                                x.p[2]/args->image_scale,\
+    (image->height/args->image_scale)-x.p[1]/args->image_scale
+  int g2=g2_open_X11(image->width/args->image_scale,image->height/args->image_scale);
+  g2_set_auto_flush(g2,0);
+  g2_pen(g2,6);
+  int ii;
+  for (ii = 0; ii < n - 1; ii++) {
+    g2_plot(G2_TRANSFORMcd(list[ii]));
+  }
+  g2_flush(g2);
+  sleep(5);
+#endif
+}
+
 double* compute_distances(point_t* list, int n) {
   int n2=n*n;
   double* table = malloc(n2*sizeof(double));

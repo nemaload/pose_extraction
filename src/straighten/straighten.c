@@ -178,6 +178,7 @@ int main(int argc, char** argv) {
     while(!refine_success) {
       step_start("sampling for MST");
         w = sample_bright_points(&input, args.mst_sample_size);
+	display_points(w, args.mst_sample_size, &input, &args);
       step_end();
 
       step_start("computing distances for MST");
