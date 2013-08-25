@@ -161,7 +161,18 @@ int refine_backbone(const image_t* image, point_t* sample, const args_t* args, d
 
     kdtree_free(kdtree);
 #ifdef X11
+#define G2_DRAW_BACKBONE \
+    g2_pen(sh.g2,0);\
+    g2_filled_rectangle(sh.g2,0,0,(double)image->width/image_scale,(double)image->height/image_scale);\
+    g2_move(sh.G2_TRANSFORM(backbone[0]));\
+    g2_pen(sh.g2,19);\
+    for(i=1;i<n;i++) {\
+      g2_line_to(sh.G2_TRANSFORM(backbone[i]));\
+    }
+    G2_DRAW_BACKBONE
+
     g2_flush(sh.g2);
+    usleep(1e3);
 #endif
 
     iter_delta = 0;
@@ -218,18 +229,6 @@ int refine_backbone(const image_t* image, point_t* sample, const args_t* args, d
     }
 
     memcpy(backbone,backbone_new,n*sizeof(dpoint_t));
-
-#ifdef X11
-#define G2_DRAW_BACKBONE \
-    g2_pen(sh.g2,0);\
-    g2_filled_rectangle(sh.g2,0,0,(double)image->width/image_scale,(double)image->height/image_scale);\
-    g2_move(sh.G2_TRANSFORM(backbone[0]));\
-    g2_pen(sh.g2,19);\
-    for(i=1;i<n;i++) {\
-      g2_line_to(sh.G2_TRANSFORM(backbone[i]));\
-    }
-    G2_DRAW_BACKBONE
-#endif
 
     replace_in_sample(image,sample,args->refine_refresh_size,args->refine_sample_size);
 
