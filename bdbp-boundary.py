@@ -6,6 +6,9 @@
 
 import math
 import numpy
+import numpy.ma as ma
+import scipy.ndimage as ndimage
+import scipy.ndimage.morphology
 import hdf5lflib
 
 import cv
@@ -17,6 +20,65 @@ import matplotlib.patches
 import os
 import sys
 import tables
+
+def print_mask(mask):
+    """
+    A debug print function that prints out a bool array in asciiart.
+    """
+    for row in mask:
+        for item in row:
+            sys.stdout.write('#' if item else '.')
+        sys.stdout.write('\n')
+
+def edge_dist_if_within(edgedists, coord):
+    """
+    Return edge distance at a given coord (possibly ma.masked) or
+    ma.masked if we are accessing outside of the image.
+    """
+    if coord[0] < 0 or coord[1] < 0:
+        return ma.masked
+    try:
+        return edgedists[tuple(coord)]
+    except IndexError:
+        return ma.masked
+
+def computeEdgeDistances(uvframe):
+    """
+    Create and return a 2D matrix @edgedists as a companion to @uvframe,
+    containing for each pixel a distance to the nearest edge (more precisely,
+    the nearest 0-valued pixel).
+
+    We compute @edgedists in a floodfill fashion spreading from zero-areas
+    to the middle of one-areas iteratively, with distances approximated
+    on the pixel grid.
+    """
+    # edgedists is a masked array, with only already computed values unmasked;
+    # at first, uvframe == 0 already are computed (as zeros)
+    edgedists = ma.array(numpy.zeros(uvframe.shape, dtype = numpy.float), mask = (uvframe > 0))
+    #numpy.set_printoptions(threshold=numpy.nan)
+    #print edgedists
+
+    flood_spread = scipy.ndimage.morphology.generate_binary_structure(2, 2)
+    neighbor_ofs = [[-1,-1],[-1,0],[-1,1], [0,-1],[0,0],[0,1],  [1,-1],[1,0],[1,1]]
+    s2 = math.sqrt(2)
+    neighbor_dist = [s2,1,s2, 1,0,1, s2,1,s2]
+
+    while ma.getmaskarray(edgedists).any():
+        # scan masked area for any elements that have unmasked neighbors
+        done_mask = numpy.invert(ma.getmaskarray(edgedists))
+        todo_mask = done_mask ^ scipy.ndimage.binary_dilation(done_mask, flood_spread)
+        #print_mask(todo_mask)
+        for i in numpy.transpose(numpy.nonzero(todo_mask)):
+            neighbor_val = ma.array([
+                    edge_dist_if_within(edgedists, i + ofs) + dist
+                        for ofs, dist in zip(neighbor_ofs, neighbor_dist)
+                ])
+            newdist = ma.min(neighbor_val)
+            # We assert that this update never affects value other fields
+            # visited later in this iteration of floodfill
+            edgedists[tuple(i)] = newdist
+
+    return edgedists.data
 
 def processFrame(i, node, outputBase, ar, cw):
     uvframe = hdf5lflib.compute_uvframe(node, ar, cw)
@@ -41,6 +103,14 @@ def processFrame(i, node, outputBase, ar, cw):
 
     plt.figure()
     imgplot = plt.imshow(uvframe, cmap=plt.cm.gray)
+    plt.show()
+
+    # Annotate with information regarding the nearest edge
+    edgedists = computeEdgeDistances(uvframe)
+
+    fig, axes = plt.subplots(ncols = 2)
+    axes[0].imshow(uvframe, cmap=plt.cm.gray)
+    axes[1].imshow(edgedists)
     plt.show()
 
 def processFile(filename, outputDirectoryPath, frameNo):
