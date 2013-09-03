@@ -51,6 +51,30 @@ def edge_dist_if_within(edgedists, coord):
     except IndexError:
         return ma.masked
 
+def display_graph(ax, graph, points):
+    verts = []
+    codes = []
+    for i,j in graph.edges():
+        verts.append([points[i][1], points[i][0]])
+        codes.append(Path.MOVETO)
+        verts.append([points[j][1], points[j][0]])
+        codes.append(Path.LINETO)
+    path = Path(verts, codes)
+    patch = matplotlib.patches.PathPatch(path, facecolor='none', edgecolor='blue', lw=1)
+    ax.add_patch(patch)
+
+def display_path(ax, pathlist, points):
+    verts = []
+    codes = []
+    for i in pathlist:
+        verts.append([points[i][1], points[i][0]])
+        codes.append(Path.LINETO)
+    codes[0] = Path.MOVETO
+    path = Path(verts, codes)
+    patch = matplotlib.patches.PathPatch(path, facecolor='none', edgecolor='green', lw=1)
+    ax.add_patch(patch)
+
+
 def computeEdgeDistances(uvframe):
     """
     Create a 2D matrix @edgedists as a companion to @uvframe,
@@ -161,29 +185,6 @@ def gradientAscent(edgedists, edgedirs, point):
         point = [point[0] - walkDir[0], point[1] - walkDir[1]]
         #print ">", bestPoint, bestDist, point, edgedists[round(point[0]), round(point[1])]
     return bestPoint
-
-def display_graph(ax, graph, points):
-    verts = []
-    codes = []
-    for i,j in graph.edges():
-        verts.append([points[i][1], points[i][0]])
-        codes.append(Path.MOVETO)
-        verts.append([points[j][1], points[j][0]])
-        codes.append(Path.LINETO)
-    path = Path(verts, codes)
-    patch = matplotlib.patches.PathPatch(path, facecolor='none', edgecolor='blue', lw=1)
-    ax.add_patch(patch)
-
-def display_path(ax, pathlist, points):
-    verts = []
-    codes = []
-    for i in pathlist:
-        verts.append([points[i][1], points[i][0]])
-        codes.append(Path.LINETO)
-    codes[0] = Path.MOVETO
-    path = Path(verts, codes)
-    patch = matplotlib.patches.PathPatch(path, facecolor='none', edgecolor='green', lw=1)
-    ax.add_patch(patch)
 
 def poseExtract(uvframe, edgedists, edgedirs):
     """
