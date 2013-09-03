@@ -1,8 +1,7 @@
 #!/usr/bin/env python
-# Extract boundary information from c. elegans image.
-# Usage: bdbp-boundary.py HDF5FILE FRAMENUMBER OUTPUTDIR
-# Output: A "here's the worm" mask.
-# XXX: work in progress
+# Extract pose information from c. elegans lightfield image.
+# Usage: bdbp.py HDF5FILE FRAMENUMBER
+# Output: A TSV-formatted file with pose control point coordinates.
 
 import math
 import random
@@ -202,7 +201,7 @@ def poseExtract(uvframe, edgedists, edgedirs):
 
     # Generate a backbone from the points set
     backbone = pointsToBackbone(points, uvframe)
-    print backbone
+    #print backbone
 
     # Show the backbone
     if PROGRESS_FIGURES:
@@ -234,7 +233,11 @@ def poseExtract(uvframe, edgedists, edgedirs):
         plt.show()
 
     # TODO: Extend tips by slowest-rate gradient descent
-    return backbone
+    return map(lambda i: points[i], backbone)
+
+def printTSV(backbone):
+    for point in backbone:
+        print 0, point[0], point[1]
 
 def processFrame(i, node, outputBase, ar, cw):
     uvframe = hdf5lflib.compute_uvframe(node, ar, cw)
@@ -273,7 +276,11 @@ def processFrame(i, node, outputBase, ar, cw):
         axes[1].imshow(edgedists)
         plt.show()
 
-    print poseExtract(uvframe, edgedists, edgedirs)
+    # Determine the backbone
+    backbone = poseExtract(uvframe, edgedists, edgedirs)
+
+    # Convert to TSV and output
+    printTSV(backbone)
 
 def processFile(filename, outputDirectoryPath, frameNo):
     h5file = tables.open_file(filename, mode = "r")
