@@ -5,21 +5,30 @@
 # XXX: work in progress
 
 import math
+import random
+
 import numpy
 import numpy.ma as ma
 import scipy.ndimage as ndimage
 import scipy.ndimage.morphology
 import hdf5lflib
 
+import networkx as nx
+
 import cv
 import cv2
 import matplotlib.pyplot as plt
 import matplotlib.patches
+from matplotlib.path import Path
 
 #various file processing/OS things
 import os
 import sys
 import tables
+
+
+NUM_SAMPLES = 80
+
 
 def print_mask(mask):
     """
@@ -80,6 +89,85 @@ def computeEdgeDistances(uvframe):
 
     return edgedists.data
 
+def sampleRandomPoint(uvframe):
+    """
+    Return a coordinate tuple of a random point with non-zero value in uvframe.
+    """
+    while True:
+        c = (random.randint(0, uvframe.shape[0]-1), random.randint(0, uvframe.shape[1]-1))
+        if uvframe[c] > 0:
+            return c
+
+def poseExtract(uvframe, edgedists):
+    """
+    Output a sequence of coordinates of pose curve control points.
+    """
+    # Pick a random sample of points
+    points = [sampleRandomPoint(uvframe) for i in range(NUM_SAMPLES)]
+
+    # Generate a complete graph over these points,
+    # weighted by Euclidean distances
+    g = nx.Graph()
+    g.add_nodes_from(range(len(points)))
+    for i in range(len(points)):
+        for j in range(i+1, len(points)):
+            # TODO: scipy's cpair? but we will need to construct
+            # a graph anyway
+            g.add_edge(i, j, {'weight': math.pow(points[i][0]-points[j][0], 2) + math.pow(points[i][1]-points[j][1], 2)})
+
+    # Reduce the complete graph to MST
+    gmst = nx.minimum_spanning_tree(g)
+
+    # Show the MST
+    f = plt.figure()
+    imgplot = plt.imshow(uvframe, cmap=plt.cm.gray)
+    if True:
+        ax = f.add_subplot(111)
+        verts = []
+        codes = []
+        for i,j in gmst.edges():
+            verts.append([points[i][1], points[i][0]])
+            codes.append(Path.MOVETO)
+            verts.append([points[j][1], points[j][0]])
+            codes.append(Path.LINETO)
+        path = Path(verts, codes)
+        patch = matplotlib.patches.PathPatch(path, facecolor='none', edgecolor='blue', lw=1)
+        ax.add_patch(patch)
+    plt.show()
+
+    # Diameter of the minimum spanning tree will generate
+    # a "likely pose walk" through the graph
+    tip0 = max(nx.single_source_dijkstra_path_length(gmst, 0).items(), key=lambda x:x[1])[0] # funky argmax
+    (tip1_lengths, tip1_paths) = nx.single_source_dijkstra(gmst, tip0)
+    tip1 = max(tip1_lengths.items(), key=lambda x:x[1])[0]
+    backbone = tip1_paths[tip1]
+    print backbone
+
+    # Show the backbone
+    f = plt.figure()
+    imgplot = plt.imshow(uvframe, cmap=plt.cm.gray)
+    if True:
+        ax = f.add_subplot(111)
+        verts = []
+        codes = []
+        for i in backbone:
+            verts.append([points[i][1], points[i][0]])
+            codes.append(Path.LINETO)
+        codes[0] = Path.MOVETO
+        path = Path(verts, codes)
+        patch = matplotlib.patches.PathPatch(path, facecolor='none', edgecolor='green', lw=1)
+        ax.add_patch(patch)
+    plt.show()
+
+    # TODO: Refine points on backbone by fixed-direction gradient ascend
+    # over edgedists
+
+    # TODO: Redo the complete graph - MST - diameter with final graph
+    # to get fine tracing
+
+    # TODO: Extend tips by slowest-rate gradient descent
+    return backbone
+
 def processFrame(i, node, outputBase, ar, cw):
     uvframe = hdf5lflib.compute_uvframe(node, ar, cw)
 
@@ -112,6 +200,8 @@ def processFrame(i, node, outputBase, ar, cw):
     axes[0].imshow(uvframe, cmap=plt.cm.gray)
     axes[1].imshow(edgedists)
     plt.show()
+
+    print poseExtract(uvframe, edgedists)
 
 def processFile(filename, outputDirectoryPath, frameNo):
     h5file = tables.open_file(filename, mode = "r")
