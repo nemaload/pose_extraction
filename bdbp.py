@@ -53,19 +53,24 @@ def edge_dist_if_within(edgedists, coord):
 
 def computeEdgeDistances(uvframe):
     """
-    Create and return a 2D matrix @edgedists as a companion to @uvframe,
+    Create a 2D matrix @edgedists as a companion to @uvframe,
     containing for each pixel a distance to the nearest edge (more precisely,
     the nearest 0-valued pixel).
 
     We compute @edgedists in a floodfill fashion spreading from zero-areas
     to the middle of one-areas iteratively, with distances approximated
     on the pixel grid.
+
+    We return a tuple (edgedists, edgedirs), where edgedirs contains information
+    about the relative offset of the nearest edge piece.
     """
     # edgedists is a masked array, with only already computed values unmasked;
     # at first, uvframe == 0 already are computed (as zeros)
     edgedists = ma.array(numpy.zeros(uvframe.shape, dtype = numpy.float), mask = (uvframe > 0))
+    edgedirs = ma.array(numpy.zeros(uvframe.shape, dtype = (numpy.float, 2)), mask = [[[j,j] for j in i] for i in uvframe > 0])
     #numpy.set_printoptions(threshold=numpy.nan)
     #print edgedists
+    #print edgedirs
 
     flood_spread = scipy.ndimage.morphology.generate_binary_structure(2, 2)
     neighbor_ofs = [[-1,-1],[-1,0],[-1,1], [0,-1],[0,0],[0,1],  [1,-1],[1,0],[1,1]]
@@ -82,12 +87,18 @@ def computeEdgeDistances(uvframe):
                     edge_dist_if_within(edgedists, i + ofs) + dist
                         for ofs, dist in zip(neighbor_ofs, neighbor_dist)
                 ])
-            newdist = ma.min(neighbor_val)
+            nearestnei = ma.argmin(neighbor_val)
+
             # We assert that this update never affects value other fields
             # visited later in this iteration of floodfill
-            edgedists[tuple(i)] = newdist
+            edgedists[tuple(i)] = neighbor_val[nearestnei]
 
-    return edgedists.data
+            nearestneicoord = i + neighbor_ofs[nearestnei]
+            #print "-", nearestneicoord, edgedirs[tuple(nearestneicoord)]
+            edgedirs[tuple(i)] = edgedirs[tuple(nearestneicoord)] + tuple(neighbor_ofs[nearestnei])
+            #print "+", i, edgedirs[tuple(i)]
+
+    return (edgedists.data, edgedirs.data)
 
 def sampleRandomPoint(uvframe):
     """
@@ -98,7 +109,31 @@ def sampleRandomPoint(uvframe):
         if uvframe[c] > 0:
             return c
 
-def poseExtract(uvframe, edgedists):
+def gradientAscent(edgedists, edgedirs, point):
+    """
+    We want to move the point along the gradient from the edge of the worm
+    to the center. However, simple non-guided gradient ascend will obviously
+    make all the points converge in some middle point; we do not want to
+    move along the A-P axis. Therefore, we instead move _from_ the nearest
+    edge.
+    """
+    #print edgedists[tuple(point)], edgedirs[tuple(point)], max(abs(edgedirs[tuple(point)]))
+    walkDir = edgedirs[tuple(point)] / max(abs(edgedirs[tuple(point)]))
+    #print point, walkDir
+    bestDist = edgedists[tuple(point)]
+    bestPoint = point
+    # From now on, point may be a non-integer; however we always return an int
+    while point > [0,0] and point < edgedists.shape:
+        intpoint = [round(point[0]), round(point[1])]
+        if edgedists[tuple(intpoint)] < bestDist:
+            break
+        bestDist = edgedists[tuple(intpoint)]
+        bestPoint = intpoint
+        point = [point[0] - walkDir[0], point[1] - walkDir[1]]
+        #print ">", bestPoint, bestDist, point, edgedists[round(point[0]), round(point[1])]
+    return bestPoint
+
+def poseExtract(uvframe, edgedists, edgedirs):
     """
     Output a sequence of coordinates of pose curve control points.
     """
@@ -159,8 +194,28 @@ def poseExtract(uvframe, edgedists):
         ax.add_patch(patch)
     plt.show()
 
-    # TODO: Refine points on backbone by fixed-direction gradient ascend
+    # Refine points on backbone by fixed-direction gradient ascend
     # over edgedists
+    for i in backbone:
+        #print "---", i, points[i]
+        points[i] = gradientAscent(edgedists, edgedirs, points[i])
+        #print "->", points[i]
+
+    # Show the backbone
+    f = plt.figure()
+    imgplot = plt.imshow(uvframe, cmap=plt.cm.gray)
+    if True:
+        ax = f.add_subplot(111)
+        verts = []
+        codes = []
+        for i in backbone:
+            verts.append([points[i][1], points[i][0]])
+            codes.append(Path.LINETO)
+        codes[0] = Path.MOVETO
+        path = Path(verts, codes)
+        patch = matplotlib.patches.PathPatch(path, facecolor='none', edgecolor='green', lw=1)
+        ax.add_patch(patch)
+    plt.show()
 
     # TODO: Redo the complete graph - MST - diameter with final graph
     # to get fine tracing
@@ -194,14 +249,14 @@ def processFrame(i, node, outputBase, ar, cw):
     plt.show()
 
     # Annotate with information regarding the nearest edge
-    edgedists = computeEdgeDistances(uvframe)
+    (edgedists, edgedirs) = computeEdgeDistances(uvframe)
 
     fig, axes = plt.subplots(ncols = 2)
     axes[0].imshow(uvframe, cmap=plt.cm.gray)
     axes[1].imshow(edgedists)
     plt.show()
 
-    print poseExtract(uvframe, edgedists)
+    print poseExtract(uvframe, edgedists, edgedirs)
 
 def processFile(filename, outputDirectoryPath, frameNo):
     h5file = tables.open_file(filename, mode = "r")
