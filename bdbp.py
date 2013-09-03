@@ -27,6 +27,7 @@ import sys
 import tables
 
 
+PROGRESS_FIGURES = False
 NUM_SAMPLES = 80
 
 
@@ -204,10 +205,11 @@ def poseExtract(uvframe, edgedists, edgedirs):
     print backbone
 
     # Show the backbone
-    f = plt.figure()
-    imgplot = plt.imshow(uvframe, cmap=plt.cm.gray)
-    display_path(f.add_subplot(111), backbone, points)
-    plt.show()
+    if PROGRESS_FIGURES:
+        f = plt.figure()
+        imgplot = plt.imshow(uvframe, cmap=plt.cm.gray)
+        display_path(f.add_subplot(111), backbone, points)
+        plt.show()
 
     # Remove points not used in the backbone path
     for i in list(set(range(len(points))) - set(backbone)):
@@ -225,10 +227,11 @@ def poseExtract(uvframe, edgedists, edgedirs):
     backbone = pointsToBackbone(points, uvframe)
 
     # Show the backbone
-    f = plt.figure()
-    imgplot = plt.imshow(uvframe, cmap=plt.cm.gray)
-    display_path(f.add_subplot(111), backbone, points)
-    plt.show()
+    if PROGRESS_FIGURES:
+        f = plt.figure()
+        imgplot = plt.imshow(uvframe, cmap=plt.cm.gray)
+        display_path(f.add_subplot(111), backbone, points)
+        plt.show()
 
     # TODO: Extend tips by slowest-rate gradient descent
     return backbone
@@ -236,17 +239,19 @@ def poseExtract(uvframe, edgedists, edgedirs):
 def processFrame(i, node, outputBase, ar, cw):
     uvframe = hdf5lflib.compute_uvframe(node, ar, cw)
 
-    plt.figure()
-    imgplot = plt.imshow(uvframe, cmap=plt.cm.gray)
-    plt.show()
+    if PROGRESS_FIGURES:
+        plt.figure()
+        imgplot = plt.imshow(uvframe, cmap=plt.cm.gray)
+        plt.show()
 
     # Smooth twice
     uvframe = cv2.medianBlur(uvframe, 3)
     uvframe = cv2.medianBlur(uvframe, 3)
 
-    plt.figure()
-    imgplot = plt.imshow(uvframe, cmap=plt.cm.gray)
-    plt.show()
+    if PROGRESS_FIGURES:
+        plt.figure()
+        imgplot = plt.imshow(uvframe, cmap=plt.cm.gray)
+        plt.show()
 
     # Threshold
     background_color = uvframe.mean()
@@ -254,17 +259,19 @@ def processFrame(i, node, outputBase, ar, cw):
     uvframe[foreground_i] = 255.
     uvframe[numpy.invert(foreground_i)] = 0.
 
-    plt.figure()
-    imgplot = plt.imshow(uvframe, cmap=plt.cm.gray)
-    plt.show()
+    if PROGRESS_FIGURES:
+        plt.figure()
+        imgplot = plt.imshow(uvframe, cmap=plt.cm.gray)
+        plt.show()
 
     # Annotate with information regarding the nearest edge
     (edgedists, edgedirs) = computeEdgeDistances(uvframe)
 
-    fig, axes = plt.subplots(ncols = 2)
-    axes[0].imshow(uvframe, cmap=plt.cm.gray)
-    axes[1].imshow(edgedists)
-    plt.show()
+    if PROGRESS_FIGURES:
+        fig, axes = plt.subplots(ncols = 2)
+        axes[0].imshow(uvframe, cmap=plt.cm.gray)
+        axes[1].imshow(edgedists)
+        plt.show()
 
     print poseExtract(uvframe, edgedists, edgedirs)
 
