@@ -133,6 +133,29 @@ def gradientAscent(edgedists, edgedirs, point):
         #print ">", bestPoint, bestDist, point, edgedists[round(point[0]), round(point[1])]
     return bestPoint
 
+def display_graph(ax, graph, points):
+    verts = []
+    codes = []
+    for i,j in graph.edges():
+        verts.append([points[i][1], points[i][0]])
+        codes.append(Path.MOVETO)
+        verts.append([points[j][1], points[j][0]])
+        codes.append(Path.LINETO)
+    path = Path(verts, codes)
+    patch = matplotlib.patches.PathPatch(path, facecolor='none', edgecolor='blue', lw=1)
+    ax.add_patch(patch)
+
+def display_path(ax, pathlist, points):
+    verts = []
+    codes = []
+    for i in pathlist:
+        verts.append([points[i][1], points[i][0]])
+        codes.append(Path.LINETO)
+    codes[0] = Path.MOVETO
+    path = Path(verts, codes)
+    patch = matplotlib.patches.PathPatch(path, facecolor='none', edgecolor='green', lw=1)
+    ax.add_patch(patch)
+
 def poseExtract(uvframe, edgedists, edgedirs):
     """
     Output a sequence of coordinates of pose curve control points.
@@ -156,18 +179,7 @@ def poseExtract(uvframe, edgedists, edgedirs):
     # Show the MST
     f = plt.figure()
     imgplot = plt.imshow(uvframe, cmap=plt.cm.gray)
-    if True:
-        ax = f.add_subplot(111)
-        verts = []
-        codes = []
-        for i,j in gmst.edges():
-            verts.append([points[i][1], points[i][0]])
-            codes.append(Path.MOVETO)
-            verts.append([points[j][1], points[j][0]])
-            codes.append(Path.LINETO)
-        path = Path(verts, codes)
-        patch = matplotlib.patches.PathPatch(path, facecolor='none', edgecolor='blue', lw=1)
-        ax.add_patch(patch)
+    display_graph(f.add_subplot(111), gmst, points)
     plt.show()
 
     # Diameter of the minimum spanning tree will generate
@@ -181,17 +193,7 @@ def poseExtract(uvframe, edgedists, edgedirs):
     # Show the backbone
     f = plt.figure()
     imgplot = plt.imshow(uvframe, cmap=plt.cm.gray)
-    if True:
-        ax = f.add_subplot(111)
-        verts = []
-        codes = []
-        for i in backbone:
-            verts.append([points[i][1], points[i][0]])
-            codes.append(Path.LINETO)
-        codes[0] = Path.MOVETO
-        path = Path(verts, codes)
-        patch = matplotlib.patches.PathPatch(path, facecolor='none', edgecolor='green', lw=1)
-        ax.add_patch(patch)
+    display_path(f.add_subplot(111), backbone, points)
     plt.show()
 
     # Refine points on backbone by fixed-direction gradient ascend
@@ -204,17 +206,7 @@ def poseExtract(uvframe, edgedists, edgedirs):
     # Show the backbone
     f = plt.figure()
     imgplot = plt.imshow(uvframe, cmap=plt.cm.gray)
-    if True:
-        ax = f.add_subplot(111)
-        verts = []
-        codes = []
-        for i in backbone:
-            verts.append([points[i][1], points[i][0]])
-            codes.append(Path.LINETO)
-        codes[0] = Path.MOVETO
-        path = Path(verts, codes)
-        patch = matplotlib.patches.PathPatch(path, facecolor='none', edgecolor='green', lw=1)
-        ax.add_patch(patch)
+    display_path(f.add_subplot(111), backbone, points)
     plt.show()
 
     # TODO: Redo the complete graph - MST - diameter with final graph
