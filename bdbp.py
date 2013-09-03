@@ -137,11 +137,17 @@ def pointsToBackbone(points, uvframe):
     # Generate a complete graph over these points,
     # weighted by Euclidean distances
     g = nx.Graph()
-    g.add_nodes_from(range(len(points)))
+    # Graph vertices are point numbers, except points which are set to None
+    nodes = filter(lambda x: points[x] is not None, range(len(points)))
+    g.add_nodes_from(nodes)
     for i in range(len(points)):
+        if points[i] is None:
+            continue
         for j in range(i+1, len(points)):
             # TODO: scipy's cpair? but we will need to construct
             # a graph anyway
+            if points[j] is None:
+                continue
             g.add_edge(i, j, {'weight': math.pow(points[i][0]-points[j][0], 2) + math.pow(points[i][1]-points[j][1], 2)})
 
     # Reduce the complete graph to MST
@@ -155,7 +161,7 @@ def pointsToBackbone(points, uvframe):
 
     # Diameter of the minimum spanning tree will generate
     # a "likely pose walk" through the graph
-    tip0 = max(nx.single_source_dijkstra_path_length(gmst, 0).items(), key=lambda x:x[1])[0] # funky argmax
+    tip0 = max(nx.single_source_dijkstra_path_length(gmst, nodes[0]).items(), key=lambda x:x[1])[0] # funky argmax
     (tip1_lengths, tip1_paths) = nx.single_source_dijkstra(gmst, tip0)
     tip1 = max(tip1_lengths.items(), key=lambda x:x[1])[0]
     backbone = tip1_paths[tip1]
@@ -203,6 +209,10 @@ def poseExtract(uvframe, edgedists, edgedirs):
     display_path(f.add_subplot(111), backbone, points)
     plt.show()
 
+    # Remove points not used in the backbone path
+    for i in list(set(range(len(points))) - set(backbone)):
+        points[i] = None
+
     # Refine points on backbone by fixed-direction gradient ascend
     # over edgedists
     for i in backbone:
@@ -210,14 +220,15 @@ def poseExtract(uvframe, edgedists, edgedirs):
         points[i] = gradientAscent(edgedists, edgedirs, points[i])
         #print "->", points[i]
 
+    # Redo the complete graph - MST - diameter with final graph
+    # to get straight tracing
+    backbone = pointsToBackbone(points, uvframe)
+
     # Show the backbone
     f = plt.figure()
     imgplot = plt.imshow(uvframe, cmap=plt.cm.gray)
     display_path(f.add_subplot(111), backbone, points)
     plt.show()
-
-    # TODO: Redo the complete graph - MST - diameter with final graph
-    # to get fine tracing
 
     # TODO: Extend tips by slowest-rate gradient descent
     return backbone
