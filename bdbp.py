@@ -124,10 +124,10 @@ def pointsToBackbone(points, uvframe):
     gmst = nx.minimum_spanning_tree(g)
 
     # Show the MST
-    f = plt.figure()
-    imgplot = plt.imshow(uvframe, cmap=plt.cm.gray)
-    display_graph(f.add_subplot(111), gmst, points)
-    plt.show()
+    # f = plt.figure()
+    # imgplot = plt.imshow(uvframe, cmap=plt.cm.gray)
+    # display_graph(f.add_subplot(111), gmst, points)
+    # plt.show()
 
     # Diameter of the minimum spanning tree will generate
     # a "likely pose walk" through the graph
