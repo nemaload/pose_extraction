@@ -28,7 +28,7 @@ import tables
 
 
 PROGRESS_FIGURES = False
-NUM_SAMPLES = 80
+NUM_SAMPLES = 160
 
 
 def print_mask(mask):
