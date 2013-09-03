@@ -109,6 +109,35 @@ def sampleRandomPoint(uvframe):
         if uvframe[c] > 0:
             return c
 
+def pointsToBackbone(points, uvframe):
+    # Generate a complete graph over these points,
+    # weighted by Euclidean distances
+    g = nx.Graph()
+    g.add_nodes_from(range(len(points)))
+    for i in range(len(points)):
+        for j in range(i+1, len(points)):
+            # TODO: scipy's cpair? but we will need to construct
+            # a graph anyway
+            g.add_edge(i, j, {'weight': math.pow(points[i][0]-points[j][0], 2) + math.pow(points[i][1]-points[j][1], 2)})
+
+    # Reduce the complete graph to MST
+    gmst = nx.minimum_spanning_tree(g)
+
+    # Show the MST
+    f = plt.figure()
+    imgplot = plt.imshow(uvframe, cmap=plt.cm.gray)
+    display_graph(f.add_subplot(111), gmst, points)
+    plt.show()
+
+    # Diameter of the minimum spanning tree will generate
+    # a "likely pose walk" through the graph
+    tip0 = max(nx.single_source_dijkstra_path_length(gmst, 0).items(), key=lambda x:x[1])[0] # funky argmax
+    (tip1_lengths, tip1_paths) = nx.single_source_dijkstra(gmst, tip0)
+    tip1 = max(tip1_lengths.items(), key=lambda x:x[1])[0]
+    backbone = tip1_paths[tip1]
+
+    return backbone
+
 def gradientAscent(edgedists, edgedirs, point):
     """
     We want to move the point along the gradient from the edge of the worm
@@ -163,31 +192,8 @@ def poseExtract(uvframe, edgedists, edgedirs):
     # Pick a random sample of points
     points = [sampleRandomPoint(uvframe) for i in range(NUM_SAMPLES)]
 
-    # Generate a complete graph over these points,
-    # weighted by Euclidean distances
-    g = nx.Graph()
-    g.add_nodes_from(range(len(points)))
-    for i in range(len(points)):
-        for j in range(i+1, len(points)):
-            # TODO: scipy's cpair? but we will need to construct
-            # a graph anyway
-            g.add_edge(i, j, {'weight': math.pow(points[i][0]-points[j][0], 2) + math.pow(points[i][1]-points[j][1], 2)})
-
-    # Reduce the complete graph to MST
-    gmst = nx.minimum_spanning_tree(g)
-
-    # Show the MST
-    f = plt.figure()
-    imgplot = plt.imshow(uvframe, cmap=plt.cm.gray)
-    display_graph(f.add_subplot(111), gmst, points)
-    plt.show()
-
-    # Diameter of the minimum spanning tree will generate
-    # a "likely pose walk" through the graph
-    tip0 = max(nx.single_source_dijkstra_path_length(gmst, 0).items(), key=lambda x:x[1])[0] # funky argmax
-    (tip1_lengths, tip1_paths) = nx.single_source_dijkstra(gmst, tip0)
-    tip1 = max(tip1_lengths.items(), key=lambda x:x[1])[0]
-    backbone = tip1_paths[tip1]
+    # Generate a backbone from the points set
+    backbone = pointsToBackbone(points, uvframe)
     print backbone
 
     # Show the backbone
