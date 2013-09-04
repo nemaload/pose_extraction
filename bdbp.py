@@ -2,6 +2,8 @@
 # Extract pose information from c. elegans lightfield image.
 # Usage: bdbp.py HDF5FILE FRAMENUMBER
 # Output: A TSV-formatted file with pose control point coordinates.
+# NOTE: This script master location has been moved to
+#   workflow-utils/pose-extract/pose-extract-lf.py
 
 import math
 import random
