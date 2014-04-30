@@ -5,7 +5,7 @@ Straightening algorithm
 
 1. Find the standard deviation of the image
 2. Choose 50 pixels more than one s.d. above the mean
-3. Construct complete graph where each edge is weighted wsith the distance between the points
+3. Construct complete graph where each edge is weighted by the distance between the points
 4. Compute the Minimum Spanning Tree of this graph.
 5. Find the longest path, or diameter, of the MST.
 6. Construct from this an ordered sequence of control points (this will constitute the start point for the energy minimization procedure).
